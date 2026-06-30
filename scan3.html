@@ -1,0 +1,208 @@
+async function sendToAPI(base64) {
+  const payload = {
+    uuid: userData.Mobile,
+    height: userData.Height,
+    weight: userData.Weight,
+    content: base64,
+  };
+  try {
+    const res = await fetch(
+      "https://face.zconai.com/api/v1.0/measure/",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    try {
+      const gdata = await res.json();
+      console.log("API 原始回傳資料:", gdata); // Debug log
+      const data = JSON.parse(gdata);
+      console.log("API 原始回傳資料after parse:", data); // Debug log
+      // 統一安全解析
+      const hbr = num(data.hbr?.[0]);
+      const hrv = data.hrv?.[0] || {};
+      const sdnn = num(hrv.SDNN);
+      const LF = num(hrv.LF);
+      const HF = num(hrv.HF);
+      let lf_hf = num(hrv["LF/HF"]);
+      if (lf_hf === null && LF && HF) lf_hf = LF / HF;
+      const sbp = num(data.ica?.[0]?.SBP);
+      const dbp = num(data.ica?.[0]?.DBP);
+      const spo2 = data.sp?.[0] || "--";
+      const rr = num(data.rr?.[0]);
+      const af = data.af?.[0] || "--";
+      const fa = data.fa?.[0] || "--";
+
+      console.log("處理後的數值:", {
+        hbr,
+        sdnn,
+        LF,
+        HF,
+        lf_hf,
+        sbp,
+        dbp,
+        spo2,
+        rr,
+        af,
+        fa,
+      }); // Debug log
+
+      // 自律神經平衡
+      let balanceSymbol = "❓";
+      if (lf_hf !== null && !isNaN(lf_hf)) {
+        if (lf_hf > 2) balanceSymbol = "🧠 焦躁（交感極高）";
+        else if (lf_hf > 1.5) balanceSymbol = "😱 緊繃";
+        else if (lf_hf >= 1) balanceSymbol = "😌 穩定";
+        else if (lf_hf >= 0.5) balanceSymbol = "🐱 微放鬆";
+        else balanceSymbol = "🐈 深度放鬆";
+      }
+
+      // 生理疲勞
+      let fatigueSymbol = "❓";
+      if (sdnn !== null && !isNaN(sdnn)) {
+        if (sdnn < 20) fatigueSymbol = "💀 非常疲憊";
+        else if (sdnn < 30) fatigueSymbol = "😪 疲勞";
+        else if (sdnn < 50) fatigueSymbol = "😐 普通";
+        else if (sdnn < 70) fatigueSymbol = "🥳 有精神";
+        else fatigueSymbol = "💪 精力充沛";
+      }
+
+      // 心情指北針
+      let moodSymbol = "🚧";
+      if (hbr && rr && LF && HF) {
+        let moodScore = 0;
+        if (hbr > 90) moodScore += 5;
+        else if (hbr > 80) moodScore += 4;
+        else if (hbr > 70) moodScore += 3;
+        else if (hbr > 60) moodScore += 2;
+        else moodScore += 1;
+
+        if (rr > 18) moodScore += 5;
+        else if (rr > 15) moodScore += 4;
+        else if (rr > 12) moodScore += 3;
+        else if (rr > 10) moodScore += 2;
+        else moodScore += 1;
+
+        const lf_hf_ratio = LF / HF;
+        if (lf_hf_ratio > 2) moodScore += 5;
+        else if (lf_hf_ratio > 1.5) moodScore += 4;
+        else if (lf_hf_ratio > 1) moodScore += 3;
+        else if (lf_hf_ratio > 0.5) moodScore += 2;
+        else moodScore += 1;
+
+        if (moodScore >= 14) moodSymbol = "🔥 高度焦躁";
+        else if (moodScore >= 12) moodSymbol = "😠 緊繃";
+        else if (moodScore >= 9) moodSymbol = "💪 專注";
+        else if (moodScore >= 5) moodSymbol = "😌 微放鬆";
+        else moodSymbol = "😴 沉靜";
+      }
+
+      // 血壓氣球
+      let pressureSymbol = "❓";
+      if (sbp !== null && dbp !== null) {
+        if (sbp > 145 || dbp > 95) pressureSymbol = "💥 高張氣球";
+        else if (sbp >= 130 || dbp >= 85)
+          pressureSymbol = "💨 偏高氣球";
+        else if (sbp >= 110 && sbp <= 129 && dbp >= 70 && dbp <= 84)
+          pressureSymbol = "🎈 穩定氣球";
+        else if (sbp >= 95 && dbp >= 60)
+          pressureSymbol = "💧 微低氣球";
+        else pressureSymbol = "💦 洩氣氣球";
+      }
+
+      // 顯示語意摘要
+      const semanticBlock = `<hr><strong>個人化身心回饋摘要：</strong><br>
+         🐱 自律神經平衡狀態：${balanceSymbol}<br>
+         🧑🏻 生理疲勞程度：${fatigueSymbol}<br>
+         🧠 心情指北針：${moodSymbol}<br>
+         🎈 血壓氣球狀態：${pressureSymbol}<br>`;
+
+      // 檢測報告格式化
+      const reportBlock = `<hr><strong>檢測報告：</strong><br>
+        心率: ${hbr !== null && !isNaN(hbr) ? hbr + " bpm" : "--"}<br>
+        RMSSD: ${
+          hrv.RMSSD !== undefined && hrv.RMSSD !== null
+            ? hrv.RMSSD + " ms"
+            : "--"
+        }<br>
+        SDNN: ${
+          sdnn !== null && !isNaN(sdnn) ? sdnn + " ms" : "--"
+        }<br>
+        LF: ${LF !== null && !isNaN(LF) ? LF : "--"}<br>
+        HF: ${HF !== null && !isNaN(HF) ? HF : "--"}<br>
+        LF/HF: ${
+          lf_hf !== null && !isNaN(lf_hf) ? lf_hf.toFixed(2) : "--"
+        }<br>
+        血壓: ${
+          sbp !== null && dbp !== null
+            ? sbp + "/" + dbp + " mmHg"
+            : "--"
+        }<br>
+        血氧: ${
+          spo2 !== undefined && spo2 !== null && spo2 !== "--"
+            ? spo2 + "%"
+            : "--"
+        }<br>
+        呼吸頻率: ${
+          rr !== null && !isNaN(rr) ? rr + " 次/分鐘" : "--"
+        }<br>
+        心房顫動 (AF): ${
+          af !== undefined && af !== null && af !== "--" ? af : "--"
+        }<br>
+        表情分析 (FA): ${
+          fa !== undefined && fa !== null && fa !== "--" ? fa : "--"
+        }<br>`;
+
+      // 顯示到 logs
+      // document.getElementById("logs").innerText =
+      //   semanticBlock + reportBlock;
+      aiAnalysing.value = false; // 分析完畢自動隱藏
+
+      // 取得 userData
+      const userData = JSON.parse(
+        localStorage.getItem("userData") || "{}"
+      );
+
+      // 組合 HRV3Save 參數
+      const hrv3Payload = {
+        MID: userData.MID || "",
+        MAID: userData.MAID || "",
+        Token: userData.Token || "",
+        Mobile: userData.Mobile || "",
+        UID: userData.UID || "", // 若沒有 UID 就傳 ""
+        HRVCalTime: userData.HRVCalTime || "",
+        Flag: "", // 依需求填 "1"、"2"、"3" 或 ""
+        hbr: hbr?.toString() || "",
+        rmssd: hrv.RMSSD?.toString() || "",
+        sdnn: sdnn?.toString() || "",
+        lf: LF?.toString() || "",
+        hf: HF?.toString() || "",
+        lf_hf: lf_hf?.toString() || "",
+        sbp: sbp?.toString() || "",
+        dbp: dbp?.toString() || "",
+        spo2: spo2?.toString() || "",
+        af: af?.toString() || "",
+        rr: rr?.toString() || "",
+        fa: fa?.toString() || "",
+      };
+
+      // 呼叫 HRV3Save API
+      const saveResult = await saveHRV3ToServer(hrv3Payload);
+      if (saveResult && saveResult.AID) {
+        window.location.href = `/vital/finish.html?AID=${encodeURIComponent(saveResult.AID)}`;
+      } else {
+        window.location.href = "/vital/finish.html";
+      }
+
+    } catch (e) {
+      aiAnalysing.value = false;
+      console.error("解析錯誤:", e);
+    }
+  } catch (err) {
+    aiAnalysing.value = false;
+    console.error("API 錯誤:", err);
+    alert(err.message);
+  }
+} 

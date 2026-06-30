@@ -1,0 +1,232 @@
+<template>
+  <RaphaelLoading v-if="loading" />
+  <div class="changeMemberWrap">
+    <TitleMenu Text="基本資料設定" link="/member" />
+    <div class="changeMemberGroup">
+      <UserInfoForm
+        @update:name="name = $event"
+        @update:height="height = $event"
+        @update:weight="weight = $event"
+        @update:sex="sex = $event"
+        @update:date="date = $event"
+        @update:city="city = $event"
+        @update:area="area = $event"
+        @update:address="address = $event"
+        @update:email="email = $event"
+        @update:asusEmail="asusEmail = $event"
+        @update:acerEmail="acerEmail = $event"
+        @update:garminEmail="garminEmail = $event"
+        phoneShow="true"
+        addressShow="true"
+        emailShow="true"
+        asusEmailShow="true"
+        acerEmailShow="true"
+        garminEmailShow="true"
+        @submit="addUser"
+      />
+    </div>
+    
+  </div>
+</template>
+
+<script>
+import TitleMenu from "~/components/TitleMenu.vue";
+import UserInfoForm from "../components/UserInfoWrap.vue";
+import axios from "axios";
+import { useRouter } from "vue-router";
+import { ref } from "vue";
+import { useSeo } from "~/composables/useSeo";
+import { useUserData } from "~/fn/api";
+
+export default {
+  components: { UserInfoForm, TitleMenu, useSeo },
+  setup() {
+    const name = ref("");
+    const height = ref("");
+    const weight = ref("");
+    const sex = ref("");
+    const date = ref("");
+    const city = ref("");
+    const area = ref("");
+    const address = ref("");
+    const email = ref("");
+    const asusEmail = ref("");
+    const acerEmail = ref("");
+    const garminEmail = ref("");
+    const router = useRouter();
+
+    const loading = ref(false);
+
+    useSeo({
+      title: "",
+      description:
+        "NeuroPlus神經調節家提供專業的自律神經檢測服務，運用FDA認證AI技術，透過人臉辨識快速分析HRV數據，幫助您了解自律神經狀態。",
+      url: "https://neuroplus.com.tw",
+    });
+
+    useHead({
+  title: "拉菲爾人本診所",
+  meta: [{ name: "description", content: "是透過相應神經調節療法，以無藥、無副作用、非侵入性的治療方式治療自律神經失調、神經痛、弱視、耳鳴、眩暈、胃食道逆流、顏面神經麻痺、失眠、過敏性鼻炎、焦慶憂鬱、胃食道逆流、三叉神經痛、帶狀皰疹神經痛等疾病。" }],
+});
+
+    const addUser = async (formData) => {
+      try {
+        loading.value = true;
+        const localData = localStorage.getItem("userData");
+        const { MID, Token, MAID, Mobile } = localData
+          ? JSON.parse(localData)
+          : {};
+
+        // 使用傳入的 formData 或 fallback 到 ref 值
+        const userData = formData || {
+          name: name.value,
+          height: height.value,
+          weight: weight.value,
+          sex: sex.value,
+          date: date.value,
+          city: city.value,
+          area: area.value,
+          address: address.value,
+          email: email.value,
+          asusEmail: asusEmail.value,
+          acerEmail: acerEmail.value,
+          garminEmail: garminEmail.value,
+        };
+
+        if (
+          !MID ||
+          !Token ||
+          !MAID ||
+          !Mobile ||
+          !userData.name ||
+          !userData.height ||
+          !userData.weight ||
+          !userData.sex ||
+          !userData.date
+        ) {
+          throw new Error("資料不完整");
+        }
+
+        let birthday = "";
+        if (userData.date) {
+          const birthDate = new Date(userData.date);
+          const rocYear = birthDate.getFullYear() - 1911;
+          birthday = `${rocYear}/${
+            birthDate.getMonth() + 1
+          }/${birthDate.getDate()}`;
+        }
+
+
+
+        const response = await axios.post(
+          "https://23700999.com:8081/HMA/API_AA5.jsp",
+          {
+            MID,
+            Token,
+            MAID,
+            Mobile,
+            Name: userData.name,
+            Height: userData.height,
+            Weight: userData.weight,
+            Sex: userData.sex,
+            Birthday: birthday,
+            City: userData.city,
+            Zone: userData.area,
+            Address: userData.address,
+            Mail: userData.email,
+            AsusMail: userData.asusEmail,
+            AcerMail: userData.acerEmail,
+            GarminMail: userData.garminEmail,
+          }
+        );
+
+        if (response.status === 200) {
+          console.log("API_AA5 回應:", response.data);
+          
+          // 直接使用 API 回應更新 localStorage
+          if (response.data && response.data.Result === "OK") {
+            const existingUserData = JSON.parse(localData);
+            const updatedUserData = {
+              ...existingUserData,
+              ...response.data
+            };
+            localStorage.setItem("userData", JSON.stringify(updatedUserData));
+            console.log("localStorage 已更新:", updatedUserData);
+          }
+          
+          console.log("資料更新成功:", response.data);
+          
+          // 更新用戶資料後，重新獲取最新的用戶資料
+          try {
+            const { userData: updatedUserData } = await useUserData();
+            if (updatedUserData) {
+              console.log("用戶資料已同步更新");
+            }
+          } catch (error) {
+            console.error("同步用戶資料失敗:", error);
+          }
+          
+          alert("資料更新成功");
+          router.push("/member");
+        }
+      } catch (err) {
+        alert(err.message || "資料不完整");
+        console.error(err);
+      } finally {
+        loading.value = false;
+      }
+    };
+
+
+    const localData = localStorage.getItem("userData");
+    const { MID, Token, MAID, Mobile } = localData ? JSON.parse(localData) : {};
+
+    if (!MID || !Token || !MAID || !Mobile) {
+      router.push("/");
+    }
+
+    return {
+      name,
+      height,
+      weight,
+      sex,
+      date,
+      city,
+      area,
+      address,
+      email,
+      asusEmail,
+      acerEmail,
+      garminEmail,
+      addUser,
+      loading,
+    };
+  },
+};
+</script>
+
+<style lang="scss">
+.changeMemberWrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    place-items: center;
+    width: 100%;
+    padding: 0.5rem 1rem 56px 1rem;
+    height: 100vh;
+    overflow: hidden;
+  @include gradientBg();
+  .titleMenu {
+    max-width:768px;
+  }
+  .changeMemberGroup {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    max-width: 768px;
+    margin-top:1rem;
+  }
+
+
+}
+</style>

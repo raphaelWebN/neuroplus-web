@@ -1,0 +1,39 @@
+{
+  "name": "nuxt-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxi generate",
+    "generate": "nuxi generate",
+    "preview": "nuxi preview",
+    "postinstall": "nuxi prepare",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.5.4",
+    "@tailwindcss/vite": "^4.3.1",
+    "@tiaohsun/vue-datepicker": "^2.0.0",
+    "@vladmandic/face-api": "^1.7.15",
+    "@vuepic/vue-datepicker": "^9.0.3",
+    "axios": "^1.7.7",
+    "chart.js": "^4.4.7",
+    "chartjs-plugin-datalabels": "^2.2.0",
+    "echarts": "^6.1.0",
+    "firebase": "^11.0.1",
+    "firebase-admin": "^12.7.0",
+    "heic2any": "^0.0.4",
+    "html5-qrcode": "^2.3.8",
+    "lucide-vue-next": "^0.536.0",
+    "nuxt": "^3.12.0",
+    "pinia": "^2.0.0",
+    "swiper": "^11.2.10",
+    "tailwindcss": "^4.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "sass": "^1.79.1",
+    "sass-loader": "^16.0.1"
+  }
+}

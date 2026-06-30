@@ -1,0 +1,1505 @@
+<template>
+  <div class="dashboard">
+    <Sidebar />
+
+    <!-- ─────────────── Main Content ─────────────── -->
+    <main class="content">
+      <!-- page header -->
+      <div class="page-header">
+        <h1 class="page-title">編輯影音</h1>
+        <div class="page-buttons">
+          <button class="btn-back" @click="handleBack">
+            <img src="/assets/imgs/backend/back.svg" alt="返回" />
+            <span>返回</span>
+          </button>
+          <button class="btn-save" @click="handleSave">
+            <img src="/assets/imgs/backend/save.svg" alt="儲存並上架" />
+            <span>儲存並上架</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- form section -->
+      <div class="form-container" v-if="!loading">
+        <!-- 上傳封面照片 -->
+        <div class="form-section">
+          <label class="form-label">上傳封面照片</label>
+          <div
+            class="upload-area"
+            :class="{ 'drag-over': isDragOver, 'has-file': coverImage || existingCoverImage }"
+            @drop="handleDrop"
+            @dragover.prevent="isDragOver = true"
+            @dragleave="isDragOver = false"
+            @click="triggerFileInput"
+          >
+            <input
+              ref="fileInput"
+              type="file"
+              accept="image/*"
+              @change="handleFileSelect"
+              style="display: none"
+            />
+            <div v-if="!coverImage && !existingCoverImage" class="upload-placeholder">
+              <div class="upload-icon">
+                <img src="/assets/imgs/backend/cloud.svg" alt="上傳封面照片" />
+              </div>
+              <p class="upload-text">
+                Drag your file(s) or <span class="browse-link">browse</span>
+              </p>
+              <p class="upload-hint">Max 10 MB files are allowed</p>
+            </div>
+            <div v-else class="upload-preview">
+              <img
+                :src="coverImagePreview || existingCoverImage"
+                alt="封面預覽"
+                class="preview-image"
+              />
+              <button class="remove-image" @click.stop="removeCoverImage">
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 標題 -->
+        <div class="form-section">
+          <label class="form-label">標題</label>
+          <div class="input-wrapper">
+            <span class="input-icon"><img src="/assets/imgs/backend/tag.svg" alt="標題" /></span>
+            <input
+              v-model="formData.title"
+              type="text"
+              class="form-input"
+              placeholder="請輸入影片標題"
+            />
+          </div>
+        </div>
+
+        <!-- 影片連結 -->
+        <div class="form-section">
+          <label class="form-label">影片連結</label>
+          <div class="input-wrapper">
+            <span class="input-icon"><img src="/assets/imgs/backend/link.svg" alt="影片連結" /></span>
+            <input
+              v-model="formData.videoLink"
+              type="text"
+              class="form-input"
+              placeholder="請貼上連結"
+            />
+          </div>
+        </div>
+
+        <!-- 標示為推薦 -->
+        <div class="form-section">
+          <label class="form-label">標示為推薦</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <img src="/assets/imgs/backend/fire.svg" alt="標示為推薦" />
+            </span>
+            <select
+              v-model="formData.isRecommended"
+              class="form-input select-input"
+            >
+              <option :value="true">是</option>
+              <option :value="false">否</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 上架狀態 -->
+        <div class="form-section">
+          <label class="form-label">上架狀態</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <img src="/assets/imgs/backend/fire.svg" alt="上架狀態" />
+            </span>
+            <select
+              v-model="formData.isPublished"
+              class="form-input select-input"
+            >
+              <option :value="true">上架</option>
+              <option :value="false">下架</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 大標籤 -->
+        <div class="form-section">
+          <label class="form-label">影片類別</label>
+          <div class="input-wrapper">
+            <span class="input-icon">
+              <img src="/assets/imgs/backend/tag.svg" alt="影片類別" />
+            </span>
+            <select
+              v-model="formData.bigType"
+              class="form-input select-input"
+            >
+              <option value="">影片類別</option>
+              <option
+                v-for="bigType in videoBigTypeList"
+                :key="bigType.Type"
+                :value="bigType.Type"
+              >
+                {{ bigType.Name }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 標籤 -->
+        <div class="form-section">
+          <label class="form-label">標籤</label>
+          <div class="tag-container">
+            <div v-if="selectedTagsList.length > 0" class="tag-chips">
+              <div
+                v-for="(tag, index) in selectedTagsList"
+                :key="index"
+                class="tag-chip"
+              >
+                <span class="tag-chip-name">{{ tag }}</span>
+                <button
+                  type="button"
+                  class="tag-chip-delete"
+                  @click="removeTag(tag)"
+                  :aria-label="`移除 ${tag}`"
+                >
+                  <img src="/assets/imgs/backend/delete.svg" alt="刪除" />
+                </button>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="tag-add-button"
+              @click="openTagDialog"
+            >
+              <span class="tag-add-icon">+</span>
+              <span class="tag-add-text">新增標籤</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 說明 -->
+        <div class="form-section">
+          <label class="form-label">說明</label>
+          <textarea
+            v-model="formData.description"
+            class="form-textarea"
+            placeholder="請使用文字編輯器"
+            rows="6"
+          ></textarea>
+        </div>
+
+        <!-- 操作按鈕 -->
+        <div class="form-actions">
+          <button class="btn-cancel" @click="handleBack">取消</button>
+          <button class="btn-submit" @click="handleSubmit">儲存</button>
+        </div>
+      </div>
+
+      <!-- 留言版塊 -->
+      <section v-if="!loading" class="message-board">
+        <div class="message-board__header">
+
+          <div class="message-board__stats">
+            <span>留言數 {{ messageTotal }}</span>
+            <span>按讚數 {{ likesCount }}</span>
+          </div>
+        </div>
+
+        <div class="message-board__toolbar">
+          <div class="message-search">
+            <input
+              v-model="messageKeyword"
+              type="text"
+              placeholder="搜尋留言內容、留言者"
+            />
+            <img src="/assets/imgs/backend/search.svg" alt="search" />
+          </div>
+
+          <div class="message-date">
+            <VueDatePicker
+              v-model="messageDateRange"
+              range
+              :enable-time-picker="false"
+              format="yyyy/MM/dd"
+              placeholder="留言日期查詢"
+              teleport="body"
+            />
+          </div>
+        </div>
+
+        <div class="message-board__list">
+          <div v-if="messageLoading" class="message-empty">留言載入中...</div>
+          <template v-else-if="paginatedMessages.length">
+            <div class="comment-item" v-for="item in paginatedMessages" :key="item.id">
+              <div class="comment-header">
+                <div class="comment-user">
+                  <img
+                    src="/assets/imgs/backend/user.svg"
+                    alt="使用者"
+                    class="user-icon"
+                  />
+                  <div class="user-info">
+                    <span class="user-name">{{ item.sender || "訪客" }}</span>
+                    <span class="comment-time">留言時間 {{ item.date }}</span>
+                  </div>
+                </div>
+                <span
+                  class="message-status"
+                  :class="item.status === 'replied' ? 'replied' : 'unreplied'"
+                >
+                  {{ item.status === "replied" ? "已回覆" : "未回覆" }}
+                </span>
+              </div>
+              <div class="comment-content">{{ item.content }}</div>
+            </div>
+          </template>
+          <div v-else class="message-empty">尚未有人留言</div>
+        </div>
+
+        <nav class="pagination" v-if="messageTotalPages > 1">
+          <button class="btn-page" :disabled="messagePage === 1" @click="messagePage = 1">
+            &lt;&lt;
+          </button>
+          <button class="btn-page" :disabled="messagePage === 1" @click="messagePage--">
+            &lt;
+          </button>
+          <button
+            v-for="p in messagePageNumberList"
+            :key="p"
+            class="btn-page btn-page-number"
+            :class="{ active: messagePage === p }"
+            @click="messagePage = p"
+          >
+            {{ p }}
+          </button>
+          <button
+            class="btn-page"
+            :disabled="messagePage === messageTotalPages"
+            @click="messagePage++"
+          >
+            &gt;
+          </button>
+          <button
+            class="btn-page"
+            :disabled="messagePage === messageTotalPages"
+            @click="messagePage = messageTotalPages"
+          >
+            &gt;&gt;
+          </button>
+        </nav>
+      </section>
+
+      <!-- Loading -->
+      <div v-if="loading" class="loading-container">
+        <p>載入中...</p>
+      </div>
+    </main>
+
+    <!-- 標籤設定彈窗 -->
+    <TagSetting
+      v-model="showTagDialog"
+      :selected-tags="selectedTagsList"
+      :available-tags="availableTagsList"
+      @save="handleTagSave"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import axios from "axios";
+import Sidebar from "/components/raphaelBackend/Sidebar.vue";
+import TagSetting from "/components/raphaelBackend/tasSetting.vue";
+import VueDatePicker from "@vuepic/vue-datepicker";
+import "@vuepic/vue-datepicker/dist/main.css";
+import { useVideoTypeStore } from "~/stores/useVideoTypeStore";
+
+const router = useRouter();
+const route = useRoute();
+const videoTypeStore = useVideoTypeStore();
+const VIDEO_MESSAGE_API = "https://23700999.com:8081/HMA/api/bk/VideoMessageList";
+
+// 取得影片 ID
+const videoId = route.params.id as string;
+
+// 表單資料
+const formData = reactive({
+  title: "",
+  videoLink: "",
+  isRecommended: true,
+  isPublished: true, // 上架狀態
+  tags: "",
+  description: "",
+  bigType: "" as string,
+  videoTypes: [] as string[],
+});
+
+// 影片大標籤列表
+interface VideoBigType {
+  Type: string;
+  Name: string;
+}
+
+interface ApiVideoMessage {
+  Status: string;
+  Response: string;
+  CheckTime: string;
+  Message: string;
+  MID: string;
+  BID: string;
+  AID: string;
+  Mobile: string;
+  Name: string;
+}
+
+interface BoardMessage {
+  id: string;
+  content: string;
+  sender: string;
+  status: "replied" | "unreplied";
+  date: string;
+  AID: string;
+}
+
+const videoBigTypeList = ref<VideoBigType[]>([]);
+const loadingBigType = ref(false);
+const loading = ref(true);
+
+// 標籤相關
+const showTagDialog = ref(false);
+const selectedTagsList = ref<string[]>([]);
+
+// 可用的標籤列表（從 store 取得）
+const availableTagsList = computed(() => {
+  return videoTypeStore.videoTypeList.map((item: { Type: string; Name: string }) => item.Name);
+});
+
+// 將選中的標籤轉換為字串顯示
+const selectedTagsDisplay = computed(() => {
+  if (selectedTagsList.value.length === 0) {
+    return "";
+  }
+  return selectedTagsList.value.join(", ");
+});
+
+// 檔案上傳相關
+const fileInput = ref<HTMLInputElement | null>(null);
+const coverImage = ref<File | null>(null);
+const coverImagePreview = ref<string>("");
+const existingCoverImage = ref<string>("");
+const isDragOver = ref(false);
+
+// 留言版塊
+const messageKeyword = ref("");
+const messageDateRange = ref<Date[] | null>(null);
+const messageLoading = ref(false);
+const messagePage = ref(1);
+const messagePageSize = ref(10);
+const messages = ref<BoardMessage[]>([]);
+const likesCount = ref(0);
+
+const filteredMessages = computed(() => {
+  let data = messages.value.filter((m: BoardMessage) => m.AID === videoId);
+  if (messageKeyword.value.trim()) {
+    const kw = messageKeyword.value.trim().toLowerCase();
+    data = data.filter(
+      (m: BoardMessage) =>
+        m.content.toLowerCase().includes(kw) ||
+        m.sender.toLowerCase().includes(kw),
+    );
+  }
+  return data;
+});
+
+const messageTotal = computed(() => filteredMessages.value.length);
+const messageTotalPages = computed(() =>
+  Math.max(1, Math.ceil(messageTotal.value / messagePageSize.value)),
+);
+const paginatedMessages = computed(() => {
+  const start = (messagePage.value - 1) * messagePageSize.value;
+  return filteredMessages.value.slice(start, start + messagePageSize.value);
+});
+const messagePageNumberList = computed(() => {
+  const total = messageTotalPages.value;
+  const current = messagePage.value;
+  const maxButtons = 5;
+  if (total <= maxButtons) return Array.from({ length: total }, (_, i) => i + 1);
+  let start = Math.max(1, current - 2);
+  let end = Math.min(total, start + maxButtons - 1);
+  if (end - start < maxButtons - 1) start = Math.max(1, end - maxButtons + 1);
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+});
+
+function formatDateToYYYYMMDD(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+
+async function fetchVideoMessages() {
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("backendToken") || sessionStorage.getItem("backendToken")
+      : "";
+  const adminID =
+    typeof window !== "undefined"
+      ? localStorage.getItem("adminID") || sessionStorage.getItem("adminID")
+      : "";
+  if (!token || !adminID) return;
+
+  messageLoading.value = true;
+  try {
+    let StartDate = "";
+    let EndDate = "";
+    if (messageDateRange.value && messageDateRange.value.length >= 2) {
+      StartDate = formatDateToYYYYMMDD(messageDateRange.value[0]);
+      EndDate = formatDateToYYYYMMDD(messageDateRange.value[1]);
+    }
+    const response = await axios.post(VIDEO_MESSAGE_API, {
+      AdminID: adminID,
+      Token: token,
+      StartDate,
+      EndDate,
+    });
+
+    if (
+      response.data?.Result === "OK" &&
+      Array.isArray(response.data.VideoMessageList)
+    ) {
+      const list = response.data.VideoMessageList as ApiVideoMessage[];
+      messages.value = list.map((item) => ({
+        id: item.BID || "",
+        content: item.Message || "",
+        sender: item.Name || "",
+        status:
+          item.Response === "已回覆"
+            ? ("replied" as const)
+            : ("unreplied" as const),
+        date: item.CheckTime || "",
+        AID: item.AID || "",
+      }));
+    } else {
+      messages.value = [];
+    }
+  } catch (error) {
+    console.error("取得留言列表失敗:", error);
+    messages.value = [];
+  } finally {
+    messageLoading.value = false;
+  }
+}
+
+// 觸發檔案選擇
+function triggerFileInput() {
+  fileInput.value?.click();
+}
+
+// 處理檔案選擇
+function handleFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (file) {
+    processFile(file);
+  }
+}
+
+// 處理拖放
+function handleDrop(event: DragEvent) {
+  event.preventDefault();
+  isDragOver.value = false;
+  const file = event.dataTransfer?.files[0];
+  if (file) {
+    processFile(file);
+  }
+}
+
+// 處理檔案
+function processFile(file: File) {
+  const maxSize = 10 * 1024 * 1024;
+  if (file.size > maxSize) {
+    alert("檔案大小不能超過 10 MB");
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    alert("請選擇圖片檔案");
+    return;
+  }
+
+  coverImage.value = file;
+  existingCoverImage.value = "";
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    coverImagePreview.value = e.target?.result as string;
+  };
+  reader.readAsDataURL(file);
+}
+
+// 將檔案轉換為 base64
+function fileToBase64(file: File): Promise<{ base64: string; subName: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1]; // 移除 data:image/xxx;base64, 前綴
+      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const subName = extension === "jpeg" ? "jpg" : extension;
+      resolve({ base64, subName });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// 移除封面圖片
+function removeCoverImage() {
+  coverImage.value = null;
+  coverImagePreview.value = "";
+  existingCoverImage.value = "";
+  if (fileInput.value) {
+    fileInput.value.value = "";
+  }
+}
+
+// 開啟標籤設定彈窗
+function openTagDialog() {
+  showTagDialog.value = true;
+}
+
+// 處理標籤儲存
+function handleTagSave(tags: string[]) {
+  selectedTagsList.value = tags;
+  formData.tags = tags.join(", ");
+  
+  formData.videoTypes = tags
+    .map((tagName: string) => {
+      const typeItem = videoTypeStore.videoTypeList.find(
+        (item: { Type: string; Name: string }) => item.Name === tagName
+      );
+      return typeItem?.Type || "";
+    })
+    .filter((type: string) => type !== "");
+}
+
+// 移除單個標籤
+function removeTag(tagName: string) {
+  const index = selectedTagsList.value.indexOf(tagName);
+  if (index > -1) {
+    selectedTagsList.value.splice(index, 1);
+    formData.tags = selectedTagsList.value.join(", ");
+    
+    // 更新 videoTypes
+    formData.videoTypes = selectedTagsList.value
+      .map((tag: string) => {
+        const typeItem = videoTypeStore.videoTypeList.find(
+          (item: { Type: string; Name: string }) => item.Name === tag
+        );
+        return typeItem?.Type || "";
+      })
+      .filter((type: string) => type !== "");
+  }
+}
+
+// 取得影片大標籤列表
+async function fetchVideoBigTypeList() {
+  loadingBigType.value = true;
+  try {
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("backendToken") || sessionStorage.getItem("backendToken")
+      : "";
+    const adminID = typeof window !== "undefined"
+      ? localStorage.getItem("adminID") || sessionStorage.getItem("adminID")
+      : "";
+
+    if (!token || !adminID) {
+      throw new Error("缺少 token 或 adminID");
+    }
+
+    const response = await axios.post(
+      "https://23700999.com:8081/HMA/api/bk/getVideoBigTypeList",
+      {
+        AdminID: adminID,
+        Token: token,
+      }
+    );
+
+    if (response.data && response.data.Result === "OK" && response.data.VideoBigTypeList) {
+      videoBigTypeList.value = response.data.VideoBigTypeList;
+    } else {
+      console.error("API 返回錯誤:", response.data);
+      videoBigTypeList.value = [];
+    }
+  } catch (error) {
+    console.error("取得影片大標籤列表失敗:", error);
+    videoBigTypeList.value = [];
+  } finally {
+    loadingBigType.value = false;
+  }
+}
+
+// 取得影片資料
+async function fetchVideoData() {
+  loading.value = true;
+  try {
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("backendToken") || sessionStorage.getItem("backendToken")
+      : "";
+    const adminID = typeof window !== "undefined"
+      ? localStorage.getItem("adminID") || sessionStorage.getItem("adminID")
+      : "";
+
+    if (!token || !adminID) {
+      throw new Error("缺少 token 或 adminID");
+    }
+
+    const response = await axios.post(
+      "https://23700999.com:8081/HMA/api/bk/getVideoList",
+      {
+        AdminID: adminID,
+        Token: token,
+      }
+    );
+
+    if (response.data && response.data.Result === "OK" && response.data.VideoList) {
+      const video = response.data.VideoList.find((v: any) => v.AID === videoId);
+      
+      if (video) {
+        // 填入表單資料
+        formData.title = video.Name || "";
+        formData.videoLink = video.VideoURL || "";
+        formData.description = video.Desc || "";
+        
+        // 設定大標籤（取第一個）
+        if (video.VideoBigTypeList && video.VideoBigTypeList.length > 0) {
+          formData.bigType = video.VideoBigTypeList[0].VideoBigType || "";
+        }
+        
+        // 設定標籤
+        if (video.VideoTypeList && video.VideoTypeList.length > 0) {
+          const tagNames = video.VideoTypeList.map((t: any) => t.Name);
+          selectedTagsList.value = tagNames;
+          formData.tags = tagNames.join(", ");
+          formData.videoTypes = video.VideoTypeList.map((t: any) => t.VideoType);
+        }
+        
+        // 設定推薦狀態
+        formData.isRecommended = (video as any).PromoteVideo === "Y";
+        
+        // 設定上架狀態
+        formData.isPublished = (video as any).OnLineVideo === "Y" || video.Status === "Y";
+        likesCount.value = parseInt((video as any).goodCnt || "0", 10) || 0;
+        
+        // 設定現有封面圖片
+        if ((video as any).ImgURL) {
+          existingCoverImage.value = (video as any).ImgURL;
+        }
+      } else {
+        alert("找不到該影片");
+        handleBack();
+      }
+    } else {
+      alert("取得影片資料失敗");
+      handleBack();
+    }
+  } catch (error) {
+    console.error("取得影片資料失敗:", error);
+    alert("取得影片資料失敗");
+    handleBack();
+  } finally {
+    loading.value = false;
+  }
+}
+
+// 初始化資料
+onMounted(async () => {
+  await videoTypeStore.fetchVideoTypeList();
+  await fetchVideoBigTypeList();
+  await fetchVideoData();
+  await fetchVideoMessages();
+});
+
+// 返回
+function handleBack() {
+  router.push("/raphaelBackend/videoManage");
+}
+
+// 提交表單
+async function handleSubmit() {
+  if (!formData.title.trim()) {
+    alert("請輸入影片標題");
+    return;
+  }
+
+  if (!formData.videoLink.trim()) {
+    alert("請輸入影片連結");
+    return;
+  }
+
+  if (formData.videoTypes.length === 0) {
+    alert("請至少選擇一個標籤");
+    return;
+  }
+
+  if (!formData.bigType) {
+    alert("請選擇影片類別");
+    return;
+  }
+
+  if (!formData.description.trim()) {
+    alert("請輸入說明");
+    return;
+  }
+
+  try {
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("backendToken") || sessionStorage.getItem("backendToken")
+      : "";
+    const adminID = typeof window !== "undefined"
+      ? localStorage.getItem("adminID") || sessionStorage.getItem("adminID")
+      : "";
+
+    if (!token || !adminID) {
+      alert("請先登入");
+      return;
+    }
+
+    // 處理圖片 base64
+    let imageData = null;
+    if (coverImage.value) {
+      try {
+        imageData = await fileToBase64(coverImage.value);
+      } catch (error) {
+        alert("圖片處理失敗，請重新選擇");
+        return;
+      }
+    }
+
+    const requestData: any = {
+      AdminID: adminID,
+      Token: token,
+      AID: videoId, // 編輯時需要傳遞 AID
+      Type: formData.videoTypes,
+      BigType: [formData.bigType],
+      VideoURL: formData.videoLink,
+      Name: formData.title.trim(),
+      Desc: formData.description.trim(),
+      PromoteVideo: formData.isRecommended ? "Y" : "N", // 推薦
+      OnLineVideo: formData.isPublished ? "Y" : "N", // 上架
+    };
+
+    // 如果有新圖片，加入 base64 資料（編輯時只有上傳新圖片才需要傳）
+    if (imageData) {
+      requestData.base64String = imageData.base64;
+      requestData.subName = imageData.subName;
+    }
+    // 如果沒有上傳新圖片，不傳 base64String 和 subName（保持原有圖片）
+
+    console.log("提交資料:", { ...requestData, base64String: imageData ? "[已包含]" : "無" });
+
+    // 串接更新 API
+    const response = await axios.post(
+      "https://23700999.com:8081/HMA/api/bk/ModifyVideo",
+      requestData
+    );
+
+    if (response.data && response.data.Result === "OK") {
+      alert("更新成功！");
+      handleBack();
+    } else {
+      alert("更新失敗：" + (response.data?.Message || "未知錯誤"));
+    }
+  } catch (error: any) {
+    console.error("更新影片失敗:", error);
+    alert("更新失敗：" + (error.response?.data?.Message || error.message || "未知錯誤"));
+  }
+}
+
+// 儲存並上架
+async function handleSave() {
+  await handleSubmit();
+}
+
+watch(messageDateRange, async () => {
+  messagePage.value = 1;
+  await fetchVideoMessages();
+});
+
+watch(messageKeyword, () => {
+  messagePage.value = 1;
+});
+</script>
+
+<style scoped lang="scss">
+.dashboard {
+  display: flex;
+  height: 100vh;
+  background: $primary-100;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
+
+  @include respond-to("xl") {
+    padding: 16px 16px;
+  }
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 18px;
+  color: $raphael-gray-500;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  .page-title {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    gap: 8px;
+    color: #2d3047;
+    text-align: center;
+    font-size: 36px;
+    font-style: normal;
+    font-weight: 700;
+    letter-spacing: 0.09px;
+  }
+
+  .page-buttons {
+    display: flex;
+    gap: 16px;
+  }
+  
+  .btn-back, .btn-save {
+    border-radius: 6px;
+    background: #b1c0d8;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 2.7px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    &:hover {
+      background-color: $primary-300;
+    }
+
+    img {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+.form-container {
+  background: $raphael-white;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0px 2px 20px 0px
+    var(--primary-200-opacity-25, rgba(177, 192, 216, 0.25));
+}
+
+.form-section {
+  margin-bottom: 32px;
+
+  &:last-of-type {
+    margin-bottom: 0;
+  }
+}
+
+.form-label {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  color: $primary-600;
+  margin-bottom: 12px;
+}
+
+.upload-area {
+  border: 2px dashed $border;
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: #fafafa;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+
+  &:hover {
+    border-color: $primary-200;
+    background: #f5f5f5;
+  }
+
+  &.drag-over {
+    border-color: $primary-200;
+    background: #e3f2fd;
+  }
+
+  &.has-file {
+    padding: 0;
+    min-height: auto;
+  }
+}
+
+.upload-placeholder {
+  .upload-icon {
+    margin-bottom: 16px;
+    opacity: 0.6;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    img {
+      width: 64px;
+      height: 64px;
+    }
+  }
+
+  .upload-text {
+    font-size: 16px;
+    color: $raphael-gray-500;
+    margin: 0 0 8px 0;
+
+    .browse-link {
+      color: $primary-200;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+  }
+
+  .upload-hint {
+    font-size: 14px;
+    color: $raphael-gray-400;
+    margin: 0;
+  }
+}
+
+.upload-preview {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+
+  .preview-image {
+    width: 100%;
+    height: auto;
+    max-height: 400px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .remove-image {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+  }
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .input-icon {
+    position: absolute;
+    left: 16px;
+    font-size: 18px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 12px 16px 12px 48px;
+    border: 1px solid $border;
+    border-radius: 8px;
+    font-size: 16px;
+    color: $primary-600;
+    background: $raphael-white;
+    transition: all 0.2s ease;
+
+    &:focus {
+      outline: none;
+      border-color: $primary-200;
+      box-shadow: 0 0 0 3px rgba($primary-200, 0.1);
+    }
+
+    &::placeholder {
+      color: $raphael-gray-400;
+    }
+  }
+
+  .select-input {
+    appearance: none;
+    -moz-appearance: none;
+    -webkit-appearance: none;
+    padding-right: 40px;
+    background-image: url("/assets/imgs/backend/arrow-down.svg");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 16px 16px;
+  }
+}
+
+// 標籤容器
+.tag-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 50px;
+  background: rgba($primary-200, 0.1);
+  border: 1px solid $primary-200;
+  
+  .tag-chip-name {
+    color: $primary-200;
+    font-size: 14px;
+    font-weight: 400;
+  }
+  
+  .tag-chip-delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    img {
+      width: 12px;
+      height: 12px;
+      opacity: 0.7;
+    }
+    
+    &:hover {
+      opacity: 1;
+      
+      img {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+.tag-add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px dashed $border;
+  border-radius: 8px;
+  background: $raphael-white;
+  color: $raphael-gray-500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: fit-content;
+  
+  .tag-add-icon {
+    font-size: 18px;
+    font-weight: 600;
+    color: $primary-200;
+  }
+  
+  .tag-add-text {
+    color: $raphael-gray-500;
+  }
+  
+  &:hover {
+    border-color: $primary-200;
+    background: rgba($primary-200, 0.05);
+    
+    .tag-add-text {
+      color: $primary-200;
+    }
+  }
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid $border;
+  border-radius: 8px;
+  font-size: 16px;
+  color: $primary-600;
+  background: $raphael-white;
+  font-family: inherit;
+  resize: vertical;
+  transition: all 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: $primary-200;
+    box-shadow: 0 0 0 3px rgba($primary-200, 0.1);
+  }
+
+  &::placeholder {
+    color: $raphael-gray-400;
+  }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid $border;
+}
+
+.btn-cancel,
+.btn-submit {
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btn-cancel {
+  background: $raphael-white;
+  color: $raphael-gray-500;
+  border: 1px solid $border;
+
+  &:hover {
+    background: #f5f5f5;
+  }
+}
+
+.btn-submit {
+  background: $primary-200;
+  color: $raphael-white;
+
+  &:hover {
+    background: $primary-300;
+  }
+}
+
+.message-board {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-radius: 20px;
+  background: $raphael-white;
+  box-shadow: 0px 2px 20px 0px rgba(177, 192, 216, 0.25);
+  padding: 20px;
+
+  .message-board__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: $primary-600;
+
+    h3 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+    }
+  }
+
+  .message-board__stats {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    span {
+      color: $raphael-gray-500;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 2px 0;
+
+      &:not(:last-child) {
+        border-right: 1px solid $border;
+        padding-right: 12px;
+      }
+    }
+  }
+
+  .message-board__toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+  }
+
+  .message-search,
+  .message-date {
+    position: relative;
+    min-width: 220px;
+    flex: 1;
+  }
+
+  .message-search {
+    img {
+      width: 16px;
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    input {
+      width: 100%;
+      border: none;
+      border-radius: 50px;
+      box-shadow: 0px 2px 12px 0px rgba(177, 192, 216, 0.2);
+      padding: 8px 12px 8px 36px;
+    }
+  }
+
+  .message-date {
+    :deep(.dp__input) {
+      border: none;
+      border-radius: 50px;
+      box-shadow: 0px 2px 12px 0px rgba(177, 192, 216, 0.2);
+      padding-left: 34px;
+    }
+
+    :deep(.dp__input_icon) {
+      color: $chip-success;
+    }
+  }
+
+  .message-board__list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .comment-item {
+    border: 1px solid #dce6f5;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #fff;
+  }
+
+  .comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .comment-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .user-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+  }
+
+  .user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .user-name {
+    color: $primary-600;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .comment-time {
+    color: $raphael-gray-500;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .comment-content {
+    color: #666;
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .message-empty {
+    border: 1px solid $border;
+    border-radius: 12px;
+    background: #fafcff;
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: $raphael-gray-500;
+    font-size: 14px;
+  }
+
+  .message-status {
+    padding: 3px 10px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    font-size: 12px;
+    line-height: 1.2;
+    flex-shrink: 0;
+  }
+
+  .message-status.replied {
+    color: #1ba39b;
+    border-color: #1ba39b;
+    background: rgba(27, 163, 155, 0.1);
+  }
+
+  .message-status.unreplied {
+    color: #ec4f4f;
+    border-color: #ec4f4f;
+    background: rgba(236, 79, 79, 0.1);
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 4px;
+
+    .btn-page {
+      padding: 6px 10px;
+      min-width: 32px;
+      border-radius: 4px;
+      background-color: transparent;
+      cursor: pointer;
+      border: none;
+      color: $raphael-gray-500;
+
+      &.active {
+        background: $chip-success;
+        color: #fff;
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+    }
+
+    .btn-page-number {
+      background: #fff;
+    }
+  }
+}
+
+@include respond-to("md") {
+  .form-container {
+    padding: 24px 16px;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+
+    .btn-back {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  .form-actions {
+    flex-direction: column;
+
+    .btn-cancel,
+    .btn-submit {
+      width: 100%;
+    }
+  }
+
+  .message-board {
+    padding: 14px;
+
+    .message-board__header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .message-board__stats {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    .message-search,
+    .message-date {
+      min-width: 100%;
+    }
+
+    .comment-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+}
+</style>
+

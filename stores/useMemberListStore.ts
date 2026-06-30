@@ -1,0 +1,303 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { redirectToRaphaelBackendLoginIfUnauthorized } from '~/composables/useRaphaelBackendAuth'
+
+/** API `MemberList` 單筆（欄位依後端可能增減） */
+export interface MemberRaw {
+  MID: string
+  MAID?: string
+  Name: string
+  Birthday: string
+  Mobile: string
+  GradeName: string
+  Grade?: string
+  HRV: string
+  HRVONOFF?: string
+  HRVCalTime?: string
+  DSPR: string
+  memType: string
+  TDate: string
+  score: string
+  totalScore: string
+  Score?: string
+  TotalScore?: string
+  Sex?: string
+  City?: string
+  Zone?: string
+  Address?: string
+  Height?: string
+  Weight?: string
+  Mail?: string
+  GarminMail?: string
+  AsusMail?: string
+  AcerMail?: string
+  IsAuth?: string
+  Status?: string
+  CheckTime?: string
+  ModifyTime?: string
+  Password?: string
+  HomeOrder: {
+    ProductName?: string
+    Used?: string
+    Still?: string
+    RentStart?: string
+    RentEnd?: string
+    Period?: string
+  }[]
+}
+
+export interface Member {
+  id: string
+  name: string
+  birthday: string
+  phone: string
+  level: string
+  product: string
+  usageDays: number
+  remainingDays: number
+  hrv: string
+  ans: string
+  isAbnormal: boolean
+  registerDate: string
+  memType: string
+  score: number | null
+  totalScore: number | null
+}
+
+function isValidDate(value: unknown): value is Date {
+  return value instanceof Date && !Number.isNaN(value.getTime())
+}
+
+function getStartOfDay(date: Date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function getEndOfDay(date: Date) {
+  const d = new Date(date)
+  d.setHours(23, 59, 59, 999)
+  return d
+}
+
+function normalizeDateRange(value: unknown): [Date, Date] | null {
+  // 單日（Date 物件）
+  if (isValidDate(value)) {
+    return [getStartOfDay(value), getEndOfDay(value)]
+  }
+
+  // 區間（Date[]）
+  if (Array.isArray(value)) {
+    const dates = value.filter(isValidDate)
+    if (dates.length === 0) return null
+    if (dates.length === 1) {
+      return [getStartOfDay(dates[0]), getEndOfDay(dates[0])]
+    }
+    const [a, b] = dates
+    const start = a <= b ? a : b
+    const end = a <= b ? b : a
+    return [getStartOfDay(start), getEndOfDay(end)]
+  }
+
+  return null
+}
+
+export const useMemberListStore = defineStore('memberList', () => {
+  // 狀態
+  const members = ref<Member[]>([])
+  const lastUpdated = ref('')
+  const hasFetched = ref(false)
+  const keyword = ref('')
+  const dateRange = ref<Date[] | null>(null)
+  const productFilter = ref('')
+  const gradeFilter = ref('')
+  const statusFilter = ref('')
+  const page = ref(1)
+  const pageSize = 10
+
+  /** 以 MID 對應 API 原始列，供匯出 Excel */
+  const rawByMid = ref<Map<string, MemberRaw>>(new Map())
+
+  // 計算屬性
+  const filteredMembers = computed(() => {
+    const normalizedRange = normalizeDateRange(dateRange.value)
+
+    return members.value.filter((m) => {
+      /* 關鍵字 */
+      const kw = keyword.value.trim()
+      const hit = !kw || [m.name, m.phone, m.birthday].some((v) => v.includes(kw))
+
+      /* 產品 / 等級 / 狀態 */
+      const prodOk = !productFilter.value || m.product === productFilter.value
+      const gradeOk = !gradeFilter.value || m.level === gradeFilter.value
+      const statusOk = !statusFilter.value || m.memType === statusFilter.value
+
+      /* 日期 */
+      let dateOk = true
+      if (normalizedRange) {
+        const [startAt, endAt] = normalizedRange
+        const regDate = new Date(m.registerDate.replace(/-/g, "/"))
+        regDate.setHours(12, 0, 0, 0)
+        dateOk = regDate >= startAt && regDate <= endAt
+      }
+
+      return hit && prodOk && gradeOk && statusOk && dateOk
+    })
+  })
+
+  const total = computed(() => filteredMembers.value.length)
+  const totalPages = computed(() => Math.ceil(total.value / pageSize))
+  const paginatedMembers = computed(() => {
+    const start = (page.value - 1) * pageSize
+    return filteredMembers.value.slice(start, start + pageSize)
+  })
+
+  // 方法
+  async function fetchMembers() {
+    if (hasFetched.value) return
+
+    try {
+      const token = localStorage.getItem("backendToken") || sessionStorage.getItem("backendToken")
+      const adminID = localStorage.getItem("adminID") || sessionStorage.getItem("adminID")
+      if (!token || !adminID) throw new Error("缺少 token 或 adminID")
+
+      const body = {
+        AdminID: adminID,
+        Token: token,
+        Keyword: keyword.value,
+        StartDate: "",
+        EndDate: "",
+        ProductName: productFilter.value,
+        memType: statusFilter.value,
+      }
+
+      const res = await fetch("https://23700999.com:8081/HMA/API_Home.jsp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error(res.statusText)
+      const data = (await res.json()) as {
+        Result?: string
+        MemberList?: MemberRaw[]
+        Message?: string
+      }
+      if (redirectToRaphaelBackendLoginIfUnauthorized(data, res.status)) return
+      if (data.Result !== "OK" || !Array.isArray(data.MemberList)) {
+        console.error("讀取 MemberList 失敗：", data.Result, data.Message)
+        return
+      }
+      const { MemberList } = data
+
+      const midMap = new Map<string, MemberRaw>()
+      for (const r of MemberList) {
+        if (r.MID != null && r.MID !== '') midMap.set(String(r.MID), r)
+      }
+      rawByMid.value = midMap
+
+      members.value = MemberList.map((r) => {
+        const order = r.HomeOrder?.[0] ?? {}
+        const fmt = r.TDate.includes("/")
+          ? r.TDate
+          : `${r.TDate.slice(0, 4)}/${r.TDate.slice(4, 6)}/${r.TDate.slice(6, 8)}`
+        return {
+          id: r.MID,
+          name: r.Name,
+          birthday: r.Birthday,
+          phone: r.Mobile,
+          level: r.GradeName,
+          product: order.ProductName ?? "",
+          usageDays: Number(order.Used ?? 0),
+          remainingDays: Number(order.Still ?? 0),
+          hrv: r.HRV,
+          ans: r.DSPR,
+          isAbnormal: Number(r.HRV) < 40,
+          registerDate: fmt,
+          memType: r.memType,
+          score: r.Score ? Number(r.Score) : null,
+          totalScore: r.TotalScore ? Number(r.TotalScore) : null,
+        }
+      })
+
+      lastUpdated.value = new Date().toLocaleString("zh-TW")
+      hasFetched.value = true
+    } catch (e) {
+      console.error("讀取 MemberList 失敗：", e)
+    }
+  }
+
+  function clear() {
+    members.value = []
+    lastUpdated.value = ''
+    hasFetched.value = false
+    page.value = 1
+  }
+
+  function setKeyword(kw: string) {
+    keyword.value = kw
+    page.value = 1
+  }
+
+  function setDateRange(range: Date[] | Date | null) {
+    dateRange.value = range as Date[] | null
+    page.value = 1
+  }
+
+  function setProductFilter(filter: string) {
+    productFilter.value = filter
+    page.value = 1
+  }
+
+  function setGradeFilter(filter: string) {
+    gradeFilter.value = filter
+    page.value = 1
+  }
+
+  function setStatusFilter(filter: string) {
+    statusFilter.value = filter
+    page.value = 1
+  }
+
+  function gotoPage(p: number) {
+    page.value = p
+  }
+
+  function prevPage() {
+    if (page.value > 1) page.value--
+  }
+
+  function nextPage() {
+    if (page.value < totalPages.value) page.value++
+  }
+
+  return {
+    // 狀態
+    members,
+    lastUpdated,
+    hasFetched,
+    keyword,
+    dateRange,
+    productFilter,
+    gradeFilter,
+    statusFilter,
+    page,
+    pageSize,
+    rawByMid,
+    // 計算屬性
+    filteredMembers,
+    total,
+    totalPages,
+    paginatedMembers,
+    // 方法
+    fetchMembers,
+    clear,
+    setKeyword,
+    setDateRange,
+    setProductFilter,
+    setGradeFilter,
+    setStatusFilter,
+    gotoPage,
+    prevPage,
+    nextPage,
+  }
+}) 

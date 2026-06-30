@@ -1,0 +1,812 @@
+<template>
+  <div class="messageDetail">
+    <Sidebar />
+
+    <!-- ─────────────── Main Content ─────────────── -->
+    <main class="content">
+      <!-- page header -->
+      <header class="page-header">
+        <h2 class="title">
+          {{ loading ? "載入中..." : (messageDetail?.videoTitle || "影片留言詳情") }}
+        </h2>
+        <div class="action-buttons">
+          <button class="btn back-btn" @click="goBack">
+            <img src="/assets/imgs/backend/back.svg" alt="返回" />
+            返回
+          </button>
+          <button
+            class="btn delete-btn"
+            :disabled="deletingMessage"
+            @click="handleDelete"
+          >
+            <img src="/assets/imgs/backend/deleteWhite.svg" alt="刪除" />
+            {{ deletingMessage ? "刪除中..." : "刪除" }}
+          </button>
+        </div>
+      </header>
+
+      <!-- 影片資訊區塊 -->
+      <section class="video-info-section">
+        <h3 class="section-title">影片資訊</h3>
+        <div class="video-info-content">
+          <!-- 影片縮圖 -->
+          <div class="video-thumbnail">
+            <img
+              v-if="hasVideoThumbnail && !thumbnailLoadFailed"
+              :src="messageDetail?.videoThumbnail"
+              alt="影片縮圖"
+              @error="thumbnailLoadFailed = true"
+            />
+            <div v-else class="thumbnail-placeholder">
+              <img
+                src="/assets/imgs/backend/media.svg"
+                alt="無縮圖"
+                class="placeholder-icon"
+              />
+              <span>尚無縮圖</span>
+            </div>
+          </div>
+
+          <!-- 影片說明 -->
+          <div class="video-description">
+            <h4>影片說明</h4>
+            <ul class="description-list">
+              <li
+                v-for="(point, index) in messageDetail?.descriptionPoints"
+                :key="index"
+              >
+                {{ point }}
+              </li>
+            </ul>
+            <p class="description-text">
+              {{ messageDetail?.description || "" }}
+            </p>
+
+            <!-- 影片連結 -->
+            <div class="video-link">
+              <h4>
+                影片連結
+                <img src="/assets/imgs/backend/linkGray.svg" alt="連結" />
+              </h4>
+              <a
+                v-if="messageDetail?.videoLink"
+                :href="messageDetail.videoLink"
+                target="_blank"
+                class="link-text"
+              >{{ messageDetail.videoLink }}</a>
+              <span v-else class="link-text">尚無連結</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 留言區塊 -->
+      <section class="comment-section">
+        <div v-for="comment in comments" :key="comment.id" class="comment-item">
+          <div class="comment-header">
+            <div class="comment-user">
+              <img
+                src="/assets/imgs/backend/user.svg"
+                alt="使用者"
+                class="user-icon"
+              />
+              <div class="user-info">
+                <span class="user-name">{{ comment.sender }}</span>
+                <span class="comment-time"
+                  >留言時間 {{ comment.date }} {{ comment.time }}</span
+                >
+              </div>
+            </div>
+            <button
+              class="status-tag"
+              :class="comment.status === 'replied' ? 'replied' : 'unreplied'"
+            >
+              {{ comment.status === "replied" ? "已回覆" : "未回覆" }}
+              <img
+                v-if="comment.status === 'unreplied'"
+                src="/assets/imgs/backend/close.svg"
+                alt="關閉"
+                class="close-icon"
+              />
+            </button>
+          </div>
+
+          <div class="comment-content">
+            {{ comment.content }}
+          </div>
+
+          
+        </div>
+
+        <!-- 無留言提示 -->
+        <div v-if="comments.length === 0" class="no-comment">
+          <p>尚未有人留言</p>
+        </div>
+      </section>
+
+      <!-- 管理員回覆區塊 -->
+      <section class="admin-reply-section">
+        <h3 class="section-title">管理員回覆</h3>
+        <div class="reply-editor">
+          <textarea
+            v-model="replyContent"
+            placeholder="請使用文字編輯器"
+            class="reply-textarea"
+          ></textarea>
+          <div class="reply-actions">
+            <button
+              class="btn submit-btn"
+              :disabled="submittingReply"
+              @click="handleSubmitReply"
+            >
+              {{ submittingReply ? "送出中..." : "回覆" }}
+            </button>
+          </div>
+        </div>
+      </section>
+      
+    </main>
+
+    
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, computed } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import axios from "axios";
+import Sidebar from "@/components/raphaelBackend/Sidebar.vue";
+import { useSeo } from "~/composables/useSeo";
+
+useSeo({
+  title: "",
+  description:
+    "NeuroPlus神經調節家提供專業的自律神經檢測服務，運用FDA認證AI技術，透過人臉辨識快速分析HRV數據，幫助您了解自律神經狀態。",
+  url: "https://neuroplus.com.tw",
+});
+
+const VIDEO_SINGLE_MESSAGE_API =
+  "https://23700999.com:8081/HMA/api/bk/VideoSingleMessage";
+const VIDEO_SINGLE_MESSAGE_MODIFY_API =
+  "https://23700999.com:8081/HMA/api/bk/VideoSingleMessageModify";
+const VIDEO_DELETE_MESSAGE_API =
+  "https://23700999.com:8081/HMA/api/bk/VideoDeleteMessage";
+
+const router = useRouter();
+const route = useRoute();
+
+const token = ref(
+  typeof window !== "undefined"
+    ? localStorage.getItem("backendToken") ||
+        sessionStorage.getItem("backendToken")
+    : ""
+);
+const adminID = ref(
+  typeof window !== "undefined"
+    ? localStorage.getItem("adminID") || sessionStorage.getItem("adminID")
+    : ""
+);
+
+/* ---------- 型別定義 ---------- */
+interface MessageDetail {
+  id: string;
+  videoTitle: string;
+  videoThumbnail?: string;
+  descriptionPoints?: string[];
+  description?: string;
+  videoLink?: string;
+}
+
+interface Comment {
+  id: string;
+  sender: string;
+  date: string;
+  time: string;
+  content: string;
+  BID: string;
+  responseText: string;
+  status: "replied" | "unreplied";
+}
+
+/* ---------- 響應式資料 ---------- */
+const messageDetail = ref<MessageDetail | null>(null);
+const comments = ref<Comment[]>([]);
+const replyContent = ref("");
+const loading = ref(false);
+const submittingReply = ref(false);
+const deletingMessage = ref(false);
+const thumbnailLoadFailed = ref(false);
+const hasVideoThumbnail = computed(() =>
+  Boolean(messageDetail.value?.videoThumbnail?.trim())
+);
+
+/* ---------- 方法 ---------- */
+// 返回列表頁
+const goBack = () => {
+  router.push("/raphaelBackend/messageManage");
+};
+
+// 刪除留言
+const handleDelete = async () => {
+  if (!confirm("確定要刪除此留言嗎？")) return;
+  if (!adminID.value || !token.value) {
+    alert("請先登入");
+    return;
+  }
+
+  const targetComment = comments.value[0];
+  const targetBID = targetComment?.BID || String(route.params.id || "");
+  if (!targetBID) {
+    alert("找不到留言資料，請重新整理後再試");
+    return;
+  }
+
+  deletingMessage.value = true;
+  try {
+    const response = await axios.post(VIDEO_DELETE_MESSAGE_API, {
+      AdminID: adminID.value,
+      Token: token.value,
+      BID: targetBID,
+    });
+
+    if (response.data?.Result === "OK") {
+      alert("刪除成功");
+      goBack();
+      return;
+    }
+
+    alert("刪除失敗：" + (response.data?.Message || "未知錯誤"));
+  } catch (err: any) {
+    console.error("刪除留言失敗:", err);
+    alert("刪除失敗：" + (err.response?.data?.Message || err.message || "未知錯誤"));
+  } finally {
+    deletingMessage.value = false;
+  }
+};
+
+// 回覆留言
+const handleReply = () => {
+  // 滾動到回覆區塊
+  const replySection = document.querySelector(".admin-reply-section");
+  if (replySection) {
+    replySection.scrollIntoView({ behavior: "smooth", block: "start" });
+    const textarea = document.querySelector(
+      ".reply-textarea"
+    ) as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.focus();
+    }
+  }
+};
+
+// 送出回覆
+const handleSubmitReply = async () => {
+  if (!replyContent.value.trim()) {
+    alert("請輸入回覆內容");
+    return;
+  }
+
+  const targetComment = comments.value[0];
+  if (!targetComment) {
+    alert("找不到留言資料，請重新整理後再試");
+    return;
+  }
+
+  if (!adminID.value || !token.value) {
+    alert("請先登入");
+    return;
+  }
+
+  submittingReply.value = true;
+  try {
+    const response = await axios.post(VIDEO_SINGLE_MESSAGE_MODIFY_API, {
+      AdminID: adminID.value,
+      Token: token.value,
+      BID: targetComment.BID,
+      Response: replyContent.value.trim(),
+    });
+
+    if (response.data?.Result === "OK") {
+      alert("回覆已送出");
+      await fetchMessageDetail();
+      return;
+    }
+
+    alert("回覆失敗：" + (response.data?.Message || "未知錯誤"));
+  } catch (err: any) {
+    console.error("送出回覆失敗:", err);
+    alert("回覆失敗：" + (err.response?.data?.Message || err.message || "未知錯誤"));
+  } finally {
+    submittingReply.value = false;
+  }
+};
+
+// 取得留言詳細資料（BID 來自 route.params.id）
+const fetchMessageDetail = async () => {
+  const BID = route.params.id as string;
+  if (!BID || !adminID.value || !token.value) {
+    messageDetail.value = null;
+    comments.value = [];
+    return;
+  }
+  loading.value = true;
+  try {
+    const response = await axios.post(VIDEO_SINGLE_MESSAGE_API, {
+      AdminID: adminID.value,
+      Token: token.value,
+      BID,
+    });
+    const data = response.data;
+    if (data?.Result === "OK") {
+      thumbnailLoadFailed.value = false;
+      // CheckTime 格式 "2026/02/02 10:59"
+      const checkTime = data.CheckTime || "";
+      const [datePart = "", timePart = ""] = checkTime.split(" ");
+
+      messageDetail.value = {
+        id: data.BID || BID,
+        videoTitle: data.Name || "影片留言詳情",
+        videoThumbnail: data.ImgURL || "",
+        descriptionPoints: data.Desc ? [data.Desc] : [],
+        description: data.Desc || "",
+        videoLink: data.VideoURL || "",
+      };
+
+      comments.value = [
+        {
+          id: data.BID || BID,
+          BID: data.BID || BID,
+          sender: data.MemName || data.Name || "",
+          date: datePart,
+          time: timePart,
+          content: data.Message || "",
+          responseText: data.Response || "",
+          status:
+            data.Response && data.Response !== "未回覆"
+              ? ("replied" as const)
+              : ("unreplied" as const),
+        },
+      ];
+
+      if (data.Response && data.Response !== "未回覆") {
+        replyContent.value = data.Response;
+      } else {
+        replyContent.value = "";
+      }
+    } else {
+      messageDetail.value = null;
+      comments.value = [];
+      replyContent.value = "";
+    }
+  } catch (err) {
+    console.error("取得留言詳情失敗:", err);
+    messageDetail.value = null;
+    comments.value = [];
+    replyContent.value = "";
+  } finally {
+    loading.value = false;
+  }
+};
+
+/* ---------- 生命週期 ---------- */
+onMounted(() => {
+  fetchMessageDetail();
+});
+</script>
+
+<style scoped lang="scss">
+.messageDetail {
+  display: flex;
+  min-height: 100vh;
+  background: $primary-100;
+  gap: 1%;
+
+  .content {
+    flex: 1;
+    padding: 1rem;
+    padding-left: 0;
+    width: 100%;
+    margin: 0 auto;
+
+    @include respond-to("lg") {
+      padding-left: 1rem;
+    }
+
+    @include respond-to("md") {
+      width: 100%;
+    }
+
+    /* ─────────── 頁面標題 ─────────── */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+
+      .title {
+        color: $primary-600;
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: 0.09px;
+        flex: 1;
+        min-width: 0;
+        word-break: break-word;
+
+        @include respond-to("md") {
+          font-size: 20px;
+          width: 100%;
+        }
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+
+        @include respond-to("md") {
+          width: 100%;
+          justify-content: flex-start;
+        }
+
+        .btn {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 6px 12px;
+          border-radius: 6px;
+          border: none;
+          cursor: pointer;
+          font-size: 14px;
+          transition: all 0.2s;
+
+          &:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+          }
+
+          img {
+            width: 16px;
+            height: 16px;
+          }
+
+          &.back-btn {
+            background: $primary-200;
+            color: #fff;
+
+            &:hover {
+              background: $primary-300;
+            }
+          }
+
+          &.delete-btn {
+            background: #ec4f4f;
+            color: #fff;
+
+            &:hover {
+              background: #d43d3d;
+            }
+          }
+
+          &.reply-btn {
+            background: $chip-success;
+            color: #fff;
+
+            &:hover {
+              background: #0d8a82;
+            }
+          }
+        }
+      }
+    }
+
+    /* ─────────── 影片資訊區塊 ─────────── */
+    .video-info-section {
+      background: #fff;
+      border-radius: 20px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0px 2px 20px 0px rgba(177, 192, 216, 0.25);
+
+      .section-title {
+        color: $primary-600;
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 1rem;
+      }
+
+      .video-info-content {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 1.5rem;
+
+        @include respond-to("md") {
+          grid-template-columns: 1fr;
+        }
+
+        .video-thumbnail {
+          min-height: 180px;
+          border-radius: 12px;
+          border: 1px solid #e5e9f2;
+          background: #f8fafc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+
+          img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+
+          .thumbnail-placeholder {
+            width: 100%;
+            height: 100%;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #9aa9c3;
+            font-size: 14px;
+
+            .placeholder-icon {
+              width: 32px;
+              height: 32px;
+              opacity: 0.65;
+            }
+          }
+        }
+
+        .video-description {
+          h4 {
+            color: $primary-600;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+          }
+
+          .description-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 1rem 0;
+
+            li {
+              color: #666;
+              font-size: 14px;
+              line-height: 1.6;
+              margin-bottom: 0.5rem;
+              padding-left: 1rem;
+              position: relative;
+
+              &::before {
+                content: "•";
+                position: absolute;
+                left: 0;
+                color: $chip-success;
+              }
+            }
+          }
+
+          .description-text {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.8;
+            margin: 0;
+          }
+        }
+
+        .video-link {
+        
+          margin-top: 1rem;
+          padding-top: 1rem;
+       
+
+          h4 {
+            display: flex;
+            align-items: center;
+
+            color: $primary-600;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+            background: var(--Neutral-200, #eee);
+            display: inline-block;
+            padding: 8px;
+
+            color: var(--Neutral-500, #666);
+            font-size: var(--Text-font-size-18, 18px);
+            font-style: normal;
+            font-weight: 400;
+            letter-spacing: 2.7px;
+
+            margin-top: 1rem;
+            img {
+              width: 18px;
+              height: 18px;
+              transform: translateY(2px);
+            }
+          }
+
+          .link-text {
+            color: $chip-success;
+            font-size: 14px;
+            text-decoration: none;
+            word-break: break-all;
+
+            &:hover {
+              text-decoration: underline;
+            }
+          }
+        }
+      }
+    }
+
+    /* ─────────── 留言區塊 ─────────── */
+    .comment-section {
+      background: #fff;
+      border-radius: 20px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0px 2px 20px 0px rgba(177, 192, 216, 0.25);
+
+      .comment-item {
+        padding: 1rem 0;
+        border-bottom: 1px solid #e5e9f2;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .comment-header {
+          display: flex;
+ 
+          align-items: center;
+          margin-bottom: 1rem;
+          gap: 1rem;
+
+          .comment-user {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+
+            .user-icon {
+              width: 40px;
+              height: 40px;
+              border-radius: 50%;
+            }
+
+            .user-info {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+
+              .user-name {
+                color: $primary-600;
+                font-size: 16px;
+                font-weight: 600;
+              }
+
+              .comment-time {
+                color: #999;
+                font-size: 12px;
+              }
+            }
+          }
+
+          .status-tag {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 12px;
+            border: none;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: default;
+
+            &.replied {
+              background: $chip-success;
+              color: #fff;
+            }
+
+            &.unreplied {
+              background: #ec4f4f;
+              color: #fff;
+
+              .close-icon {
+                width: 12px;
+                height: 12px;
+              }
+            }
+          }
+        }
+
+        .comment-content {
+          color: #666;
+          font-size: 14px;
+          line-height: 1.8;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+      }
+
+      .no-comment {
+        text-align: center;
+        padding: 3rem 0;
+        color: $raphael-gray-500;
+      }
+    }
+
+    /* ─────────── 管理員回覆區塊 ─────────── */
+    .admin-reply-section {
+      background: #fff;
+      border-radius: 20px;
+      padding: 1.5rem;
+      box-shadow: 0px 2px 20px 0px rgba(177, 192, 216, 0.25);
+
+      .section-title {
+        color: $primary-600;
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 1rem;
+      }
+
+      .reply-editor {
+        .reply-textarea {
+          width: 100%;
+          min-height: 200px;
+          padding: 1rem;
+          border: 1px solid #e5e9f2;
+          border-radius: 12px;
+          font-size: 14px;
+          font-family: inherit;
+          resize: vertical;
+          transition: all 0.2s;
+
+          &:focus {
+            outline: none;
+            border-color: $chip-success;
+            box-shadow: 0 0 0 3px rgba(27, 163, 155, 0.1);
+          }
+
+          &::placeholder {
+            color: #999;
+          }
+        }
+
+        .reply-actions {
+          margin-top: 1rem;
+          display: flex;
+          justify-content: flex-end;
+
+          .submit-btn {
+            padding: 9px 12px;
+            background: var(--Secondary-default, #74BC1F);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 2.7px;
+            &:hover {
+              background: var(--Secondary-hover, #65A31B);
+            }
+
+            &:disabled {
+              opacity: 0.7;
+              cursor: not-allowed;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+</style>

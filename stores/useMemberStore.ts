@@ -1,0 +1,1067 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import { redirectToRaphaelBackendLoginIfUnauthorized } from '~/composables/useRaphaelBackendAuth'
+
+export const useMemberStore = defineStore('member', () => {
+  
+  // 狀態
+  const member = ref<any>(null)
+  const currentOrder = ref<any>(null)
+  const orderList = ref<any[]>([])
+  const lastUpdated = ref('')
+  const hrvRecords = ref<any[]>([])
+  const ansRecords = ref<any[]>([])
+  const lifeRecords = ref<any[]>([])
+  const childANS = ref<any[]>([])
+  const homeOrders = ref<any[]>([])
+  const videoRecords = ref<any[]>([])
+  const appRecords = ref<any[]>([])
+  const healthLogRecords = ref<any[]>([])
+  const weeklySummaryRecords = ref<any[]>([])
+  const favoriteTPointsList = ref<any[]>([])
+  const favoriteMIDList = ref<any[]>([])
+  const favoriteUseRecordList = ref<any[]>([])
+  const stabilityAllList = ref<any[]>([])
+  const stableCareSensorList = ref<any[]>([])
+  const memberLastStatus = ref<any>(null)
+  const optDetailList = ref<any[]>([])
+  const vivoWatchList = ref<any[]>([])
+  const asusHealthData = ref<any>(null)
+  const acerHealthData = ref<any>(null)
+  const garminHealthData = ref<any>(null)
+  const hasFetched = ref(false)
+
+  function parseContractDate(value?: string) {
+    if (!value) return null
+    const timestamp = Date.parse(value.replace(/\//g, '-'))
+    if (Number.isNaN(timestamp)) return null
+    return new Date(timestamp)
+  }
+
+  function getCurrentContractOrder(orders: any[]) {
+    const now = Date.now()
+    const activeOrder = orders.find((order: any) => {
+      const startDate = parseContractDate(order?.RentStart)
+      const endDate = parseContractDate(order?.RentEnd)
+      if (!startDate || !endDate) return false
+      return startDate.getTime() <= now && endDate.getTime() >= now
+    })
+    return activeOrder ?? orders[0] ?? null
+  }
+
+  // 方法
+  async function fetchAll(auth: any) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile)) return
+
+      // 只使用 API_MemberDetail.jsp
+      const basicRes = await fetch("https://23700999.com:8081/HMA/API_MemberDetail.jsp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+          Mobile: sel.Mobile ?? "",
+        }),
+      })
+
+      
+      const basicData = await basicRes.json()
+      if (redirectToRaphaelBackendLoginIfUnauthorized(basicData, basicRes.status)) return
+      if (basicData.Result === "OK") {
+        member.value = basicData.MemberDetail.Member
+      }
+
+      const historyRes = await fetch("https://23700999.com:8081/HMA/API_HistoryHomeOrder.jsp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          MID: sel.MID ?? "",
+          Mobile: sel.Mobile ?? "",
+          Token: token,
+        }),
+      })
+      const historyData = await historyRes.json()
+      if (historyData.Result === 'OK') {
+        const historyOrderList = historyData?.HistoryHomeOrder?.orderList ?? []
+        orderList.value = Array.isArray(historyOrderList) ? historyOrderList : []
+        currentOrder.value = getCurrentContractOrder(orderList.value)
+      } else {
+        orderList.value = []
+        currentOrder.value = null
+      }
+
+      // 取得自律神經和生活檢測資料
+      const empty = { StartDate: "", EndDate: "" }
+      const post = (url: string, extra = empty) =>
+        fetch(`https://23700999.com:8081/HMA/${url}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            AdminID: admin,
+            Token: token,
+            MID: sel.MID ?? "",
+            Mobile: sel.Mobile ?? "",
+            ...extra,
+          }),
+        }).then((r) => r.json())
+
+      const [ansRes, lifeRes] = await Promise.all([
+        post("API_MemberANS.jsp"),
+        post("API_MemberSleepRec.jsp"),
+      ])
+
+      // 設定資料
+      ansRecords.value = ansRes?.MemberANS?.ANSList ?? []
+      lifeRecords.value = lifeRes?.MemberSleepRec?.SleepRecList ?? []
+
+      // 清空其他資料
+      homeOrders.value = []
+      hrvRecords.value = []
+      childANS.value = [] 
+      videoRecords.value = []
+      appRecords.value = []
+      healthLogRecords.value = []
+      weeklySummaryRecords.value = []
+      favoriteTPointsList.value = []
+      favoriteUseRecordList.value = []
+      optDetailList.value = []
+      vivoWatchList.value = []
+      asusHealthData.value = null
+      acerHealthData.value = null
+
+      lastUpdated.value = new Date().toLocaleString("zh-TW")
+      hasFetched.value = true
+    } catch (error) {
+      console.error('取得會員資料失敗：', error)
+    }
+  }
+
+  async function fetchHealthLog(auth: any, year: string, month: string, append = false) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile)) return
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/fr/getSoundNote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Token: token,
+          MID: sel.MID ?? "",
+          Mobile: sel.Mobile ?? "",
+          MAID: admin,
+          Lang: "zhtw",
+          Year: year,
+          Month: month,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        // 轉換 API 資料格式為前端需要的格式
+        const newRecords = (data.SoundNoteList || []).map((item: any) => ({
+          id: item.AID,
+          VerbalContent: item.PreSoundNote || "",
+          VerbalDate: item.CheckTime ? item.CheckTime.split(" ")[0] : "",
+          CheckTime: item.CheckTime,
+          Note: item.Note,
+          AID: item.AID,
+        }))
+        
+        if (append) {
+          // 合併資料，避免重複（根據 AID）
+          const existingIds = new Set(healthLogRecords.value.map((r: any) => r.AID))
+          const uniqueNewRecords = newRecords.filter((r: any) => !existingIds.has(r.AID))
+          healthLogRecords.value = [...healthLogRecords.value, ...uniqueNewRecords]
+        } else {
+          healthLogRecords.value = newRecords
+        }
+      } else {
+        if (!append) {
+          healthLogRecords.value = []
+        }
+      }
+    } catch (error) {
+      console.error('取得健康日誌失敗：', error)
+      if (!append) {
+        healthLogRecords.value = []
+      }
+    }
+  }
+
+  async function fetchWeeklySummary(auth: any) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin) return
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/CaseWeeklySummaryList", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        // API 回傳 CaseWeeklySummaryList
+        const list = data.CaseWeeklySummaryList || data.CaseWeeklySummaryList || []
+        weeklySummaryRecords.value = list.map((item: any, index: number) => {
+          // 統一 DateRange 格式，避免多餘 / 或區間符號不一致
+          let dateRange = (item.DatePeriod || "").trim()
+          // 合併多餘斜線（修正 API 回傳如 2026//0/1/ 的錯誤）
+          dateRange = dateRange.replace(/\/+/g, "/")
+          // 統一區間分隔為 " - "（支援 "2026/01/26-2026/02/01" 或 "~"）
+          if (dateRange.includes("~")) dateRange = dateRange.replace(/~/g, " - ")
+          if (dateRange.includes("-") && !dateRange.includes(" - ")) {
+            const parts = dateRange.split("-")
+            if (parts.length === 2) dateRange = parts.map((p: string) => p.trim()).join(" - ")
+          }
+          return {
+            id: item.AID || index + 1,
+            SummaryContent: item.AISummary || "",
+            MetaSummary: item.MetaSummary || "",
+            AggregateQuantity: item.CNT || "0",
+            StartDate: item.StartDate || "",
+            DateRange: dateRange,
+            MID: item.MID || "",
+            AID: item.AID || "",
+          }
+        })
+      } else {
+        weeklySummaryRecords.value = []
+      }
+    } catch (error) {
+      console.error('取得本周摘要失敗：', error)
+      weeklySummaryRecords.value = []
+    }
+  }
+
+  // 取得我的最愛版本名稱清單
+  async function fetchFavoriteMIDList(auth: any) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile)) return
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/FavoriteTPointsMIDList", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        favoriteMIDList.value = data.FavoriteTPointsMIDList || []
+      } else {
+        favoriteMIDList.value = []
+      }
+    } catch (error) {
+      console.error("取得我的最愛清單失敗：", error)
+      favoriteMIDList.value = []
+    }
+  }
+
+  async function fetchFavoriteTPointsList(auth: any) {
+    // 產品使用紀錄：僅使用 UseRecordMIDList，不再依賴 FavoriteTPointsMIDList
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile)) return
+
+      const useRecordRes = await fetch("https://23700999.com:8081/HMA/api/bk/UseRecordMIDList", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+          StartDate: "",
+          EndDate: "",
+        }),
+      })
+
+      const useRecordData = await useRecordRes.json()
+      // 不再打 FavoriteTPointsMIDList，避免額外 API 依賴
+      favoriteMIDList.value = []
+
+      // ---- 處理 UseRecordMIDList（使用紀錄）----
+      const useRecordRows: any[] = []
+      if (useRecordData.Result === "OK") {
+        const list = useRecordData.UseRecordMIDList || []
+        list.forEach((item: any, index: number) => {
+          let consultationDate = ""
+          const startTime: string = item.StartTime || ""
+          if (startTime.length >= 8) {
+            consultationDate = `${startTime.substring(0, 4)}/${startTime.substring(4, 6)}/${startTime.substring(6, 8)}`
+          }
+
+          const duration = calculateDuration(item.StartTime, item.EndTime)
+
+          let formattedStartTime = ""
+          if (startTime.length >= 12) {
+            formattedStartTime = `${startTime.substring(8, 10)}:${startTime.substring(10, 12)}`
+          }
+
+          const endTimeRaw: string = item.EndTime || ""
+          let formattedEndTime = ""
+          if (endTimeRaw.length >= 12) {
+            formattedEndTime = `${endTimeRaw.substring(8, 10)}:${endTimeRaw.substring(10, 12)}`
+          }
+
+          // 直接使用產品使用紀錄欄位，避免依賴 Favorite API 補資料
+          const favoriteName = item.FavoriteName || ""
+          const tMode = item.TMode || ""
+          const cntFavorite = item.cntFavorite || "0"
+
+          useRecordRows.push({
+            id: item.UID || `use_${index}`,
+            AID: item.AID ?? "",
+            ConsultationDate: consultationDate,
+            FavoriteName: favoriteName,
+            ProductName: item.ProductName || "",
+            TreatmentArea: item.ProductName || "",
+            StartDate: consultationDate,
+            StartTime: item.StartTime || "",
+            EndTime: item.EndTime || "",
+            FormattedStartTime: formattedStartTime,
+            FormattedEndTime: formattedEndTime,
+            PauseTime: "",
+            TreatmentTime: duration,
+            TotalTime: "",
+            TMode: tMode,
+            TemperatureDiff: "",
+            TotalUsage: cntFavorite,
+            AccMinutes: "0",
+            _source: "useRecord",
+          })
+        })
+      }
+
+      // 僅使用產品使用紀錄，按 StartTime 降序排列
+      useRecordRows.sort((a: any, b: any) => {
+        const aTime = a.StartTime || ""
+        const bTime = b.StartTime || ""
+        return bTime.localeCompare(aTime)
+      })
+      favoriteTPointsList.value = useRecordRows
+    } catch (error) {
+      console.error("取得產品使用紀錄失敗：", error)
+      favoriteTPointsList.value = []
+    }
+  }
+
+  async function fetchStabilityAll(auth: any) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile)) return
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/stability_ALL", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        stabilityAllList.value = data.StableList || []
+      } else {
+        stabilityAllList.value = []
+      }
+    } catch (error) {
+      console.error("取得護您穩平衡衣資料失敗：", error)
+      stabilityAllList.value = []
+    }
+  }
+
+  async function fetchStabilityDetail(auth: any, aid: string) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile) || !aid) return null
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/stability_query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+          AID: aid,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        return {
+          AID: String(data.AID ?? aid),
+          MID: String(data.MID ?? sel.MID ?? ""),
+          TypeName: String(data.TypeName ?? ""),
+          Name: String(data.Name ?? ""),
+          SN: String(data.SN ?? ""),
+          CheckTime: String(data.CheckTime ?? ""),
+          SVTime: String(data.SVTime ?? ""),
+          UsesTimes: String(data.UsesTimes ?? "0"),
+          ProductState: String(data.ProductState ?? ""),
+          CreateTime: String(data.CreateTime ?? ""),
+          WearRec: Array.isArray(data.WearRec) ? data.WearRec : [],
+        }
+      }
+      return null
+    } catch (error) {
+      console.error("取得護您穩平衡衣單筆資料失敗：", error)
+      return null
+    }
+  }
+
+  async function fetchStableCareSensorList(auth: any) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile)) return []
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/StableCareSensor_query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        stableCareSensorList.value = Array.isArray(data.StableCareSensorList)
+          ? data.StableCareSensorList
+          : []
+      } else {
+        stableCareSensorList.value = []
+      }
+      return stableCareSensorList.value
+    } catch (error) {
+      console.error("取得護您穩感測紀錄失敗：", error)
+      stableCareSensorList.value = []
+      return []
+    }
+  }
+
+  async function fetchMemberLastStatus(auth: any, lang: string = "zhtw") {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile)) return null
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/fr/show_member_use_laststatus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          MID: sel.MID ?? "",
+          Token: token,
+          MAID: admin,
+          Mobile: sel.Mobile ?? "",
+          Lang: lang,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        memberLastStatus.value = data
+      } else {
+        memberLastStatus.value = null
+      }
+      return memberLastStatus.value
+    } catch (error) {
+      console.error("取得會員最後登入資訊失敗：", error)
+      memberLastStatus.value = null
+      return null
+    }
+  }
+
+  async function fetchFavoriteTPointsMIDUseRecordList(auth: any, aid: string, startDate?: string, endDate?: string) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile) || !aid) return
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/FavoriteTPointsMIDUseRecordList", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+          StartDate: startDate || "",
+          EndDate: endDate || "",
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        // 根據 AID 篩選資料
+        const targetRecord = (data.FavoriteTPointsMIDUseRecordList || []).find(
+          (item: any) => item.AID === aid
+        )
+        
+        if (targetRecord && targetRecord.UserRecordList) {
+          favoriteUseRecordList.value = targetRecord.UserRecordList.map((item: any, index: number) => {
+            const duration = calculateDuration(item.StartTime, item.EndTime);
+            return {
+              id: item.UID || item.AID + "_" + index,
+              startDate: item.StartDD || "",
+              startTime: item.StartTT || "",
+              endDate: item.EndDD || "",
+              endTime: item.EndTT || "",
+              treatmentDuration: duration,
+              pauseDuration: "00:00", // API 沒有提供暫停時間，暫時顯示 00:00
+              totalDuration: duration,
+              AID: item.AID || "",
+              UID: item.UID || "",
+            }
+          })
+        } else {
+          favoriteUseRecordList.value = []
+        }
+      } else {
+        favoriteUseRecordList.value = []
+      }
+    } catch (error) {
+      console.error('取得使用紀錄列表失敗：', error)
+      favoriteUseRecordList.value = []
+    }
+  }
+
+  async function fetchOptDetailMIDList(auth: any, aid: string = "", startDate?: string, endDate?: string) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || (!sel.MID && !sel.Mobile)) return
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/OptDetailMIDList", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID ?? "",
+          StartDate: startDate || "",
+          EndDate: endDate || "",
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK") {
+        // 根據 FAID (對應 AID) 篩選資料，並轉換事件類型
+        // 當 aid 為空時，回傳全部資料；否則篩選 FAID === aid 或 FAID === "0"
+        optDetailList.value = (data.OptDetailMIDList || [])
+          .filter((item: any) => !aid || item.FAID === aid || item.FAID === "0")
+          .map((item: any, index: number) => {
+            let eventDesc = "—"
+            
+            if (item.Event === "A") {
+              eventDesc = getAEventDesc(item.Parameter, item.Desc)
+            } else if (item.Event === "B") {
+              eventDesc = getBEventDesc(item.Parameter, item.Desc)
+            } else if (item.Event === "C") {
+              eventDesc = getCEventDesc(item.Parameter, item.Desc)
+            } else if (item.Event === "D") {
+              eventDesc = getDEventDesc(item.Parameter, item.Desc)
+            } else if (item.Event === "E") {
+              eventDesc = getEEventDesc(item.Parameter, item.Desc)
+            } else if (item.Event === "F") {
+              eventDesc = getFEventDesc(item.Parameter, item.Desc)
+            } else if (item.Event === "G") {
+              eventDesc = getGEventDesc(item.Parameter, item.Desc)
+            } else if (item.Event === "H") {
+              eventDesc = getHEventDesc(item.Parameter, item.Desc)
+            } else if (item.Event === "P") {
+              // P 事件：套用我的最愛點位
+              if (item.Parameter === "2") {
+                eventDesc = "套用我的最愛點位"
+              } else if (item.Parameter === "3") {
+                eventDesc = item.Desc || "套用我的最愛點位"
+              } else {
+                eventDesc = item.Desc || "套用我的最愛點位"
+              }
+            } else {
+              eventDesc = item.Desc || "—"
+            }
+            
+            // 只顯示中文描述，不顯示代號
+            return {
+              id: item.AID || index + 1,
+              date: item.DD || "",
+              time: item.TT || "",
+              event: eventDesc,
+              AID: item.AID || "",
+              FAID: item.FAID || "",
+            }
+          })
+      } else {
+        optDetailList.value = []
+      }
+    } catch (error) {
+      console.error('取得操作紀錄失敗：', error)
+      optDetailList.value = []
+    }
+  }
+
+  // 輔助函數：計算時間差（從 StartTime 和 EndTime 計算）
+  function calculateDuration(startTime: string, endTime: string): string {
+    if (!startTime || !endTime) return "—"
+    try {
+      // 時間格式：20260120100850 (YYYYMMDDHHmmss)
+      const parseTime = (timeStr: string) => {
+        if (timeStr.length === 14) {
+          const year = timeStr.substring(0, 4)
+          const month = timeStr.substring(4, 6)
+          const day = timeStr.substring(6, 8)
+          const hour = timeStr.substring(8, 10)
+          const minute = timeStr.substring(10, 12)
+          const second = timeStr.substring(12, 14)
+          return new Date(`${year}-${month}-${day} ${hour}:${minute}:${second}`)
+        }
+        return null
+      }
+      
+      const start = parseTime(startTime)
+      const end = parseTime(endTime)
+      
+      if (!start || !end) return "—"
+      
+      const diffMs = end.getTime() - start.getTime()
+      if (diffMs < 0) return "—"
+      
+      const totalMinutes = Math.floor(diffMs / 60000)
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      
+      if (hours > 0) {
+        return `${hours}小時${minutes}分鐘`
+      }
+      return `${minutes}分鐘`
+    } catch {
+      return "—"
+    }
+  }
+
+  // 輔助函數：轉換 A 事件描述（開關機）
+  function getAEventDesc(parameter: string, desc: string): string {
+    if (parameter === "1") return "開機"
+    if (parameter === "2") return "關機"
+    return desc || "—"
+  }
+
+  // 輔助函數：轉換 B 事件描述（治療）
+  function getBEventDesc(parameter: string, desc: string): string {
+    if (parameter === "1") return "治療開始"
+    if (parameter === "2") return "治療暫停"
+    if (parameter === "3") return "治療結束"
+    if (parameter === "4") return "治療30分鐘"
+    return desc || "—"
+  }
+
+  // 輔助函數：轉換 C 事件描述（電力）
+  function getCEventDesc(parameter: string, desc: string): string {
+    if (parameter === "1") return "充電開始"
+    if (parameter === "2") return "充電完成"
+    if (parameter === "3") return "充電結束"
+    if (parameter === "4") return "充電過充"
+    if (parameter === "5") return "低電警示"
+    if (parameter === "6") return "電量不足"
+    return desc || "—"
+  }
+
+  // 輔助函數：轉換 D 事件描述（接頭接觸不良）
+  function getDEventDesc(parameter: string, desc: string): string {
+    if (parameter === "1") return "A接頭接觸不良"
+    if (parameter === "2") return "B接頭接觸不良"
+    if (parameter === "3") return "C接頭接觸不良"
+    if (parameter === "4") return "D接頭接觸不良"
+    if (parameter === "5") return "A接頭接觸恢復"
+    if (parameter === "6") return "B接頭接觸恢復"
+    if (parameter === "7") return "C接頭接觸恢復"
+    if (parameter === "8") return "D接頭接觸恢復"
+    return desc || "—"
+  }
+
+  // 輔助函數：轉換 E 事件描述（合約到期）
+  function getEEventDesc(parameter: string, desc: string): string {
+    if (parameter === "1") return "超過結束日期"
+    if (parameter === "2") return "治療次數不足"
+    if (parameter === "3") return "今日已使用"
+    return desc || "—"
+  }
+
+  // 輔助函數：轉換 F 事件描述（提示音）
+  function getFEventDesc(parameter: string, desc: string): string {
+    // F 事件通常是音檔名稱，優先使用 Desc，如果沒有則使用 Parameter
+    return desc || parameter || "—"
+  }
+
+  // 輔助函數：轉換 G 事件描述（藍芽連線）
+  function getGEventDesc(parameter: string, desc: string): string {
+    if (parameter === "1") return "連線"
+    return desc || "—"
+  }
+
+  // 輔助函數：轉換 H 事件描述（貼片故障）
+  function getHEventDesc(parameter: string, desc: string): string {
+    // H 事件：1~48=第1~48片貼片，但標註"無此功能"
+    const paramNum = parseInt(parameter)
+    if (paramNum >= 1 && paramNum <= 48) {
+      return `第${paramNum}片貼片`
+    }
+    return desc || "—"
+  }
+
+  // 取得華碩/Vivo Watch 序號列表
+  async function fetchVivoWatchList(mid: string) {
+    try {
+      if (!mid) {
+        vivoWatchList.value = []
+        return
+      }
+
+      const res = await fetch("https://23700999.com:8081/HMA/TTEloadVivoWatchIDList.jsp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Key: "qrt897hpmd",
+          MID: mid,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK" && Array.isArray(data.Data)) {
+        // 按 CreateTime 降序排序，最新的在前面
+        vivoWatchList.value = data.Data.sort((a: any, b: any) => {
+          return (b.CreateTime || "").localeCompare(a.CreateTime || "")
+        })
+      } else {
+        vivoWatchList.value = []
+      }
+    } catch (error) {
+      console.error("取得華碩序號列表失敗：", error)
+      vivoWatchList.value = []
+    }
+  }
+
+  function formatDateYYYYMMDD(date: Date) {
+    const y = date.getFullYear()
+    const m = String(date.getMonth() + 1).padStart(2, '0')
+    const d = String(date.getDate()).padStart(2, '0')
+    return `${y}${m}${d}`
+  }
+
+  function getRecent7StartDate() {
+    const d = new Date()
+    d.setDate(d.getDate() - 6)
+    return formatDateYYYYMMDD(d)
+  }
+
+  function parseYYYYMMDD(value?: string) {
+    const raw = String(value || "").trim()
+    if (!/^\d{8}$/.test(raw)) return null
+
+    const y = Number(raw.slice(0, 4))
+    const m = Number(raw.slice(4, 6))
+    const d = Number(raw.slice(6, 8))
+    if (!y || !m || !d) return null
+
+    return new Date(y, m - 1, d)
+  }
+
+  function addDays(date: Date, days: number) {
+    const d = new Date(date)
+    d.setDate(d.getDate() + days)
+    return d
+  }
+
+  function normalizeHealthRange(range?: { StartDate?: string; EndDate?: string }) {
+    const defaultStart = getRecent7StartDate()
+    const defaultEnd = formatDateYYYYMMDD(new Date())
+
+    const rawStart = (range?.StartDate || defaultStart).trim()
+    const rawEnd = (range?.EndDate || defaultEnd).trim()
+
+    const parsedStart = parseYYYYMMDD(rawStart)
+    const parsedEnd = parseYYYYMMDD(rawEnd)
+
+    // 1) 先確保起訖順序正確（避免使用者反向選取）
+    let startDateObj = parsedStart
+    let endDateObj = parsedEnd
+    if (startDateObj && endDateObj && startDateObj.getTime() > endDateObj.getTime()) {
+      const tmp = startDateObj
+      startDateObj = endDateObj
+      endDateObj = tmp
+    }
+
+    // 2) 單日選取（只有一側有值）時，補成同一天
+    if (startDateObj && !endDateObj) endDateObj = startDateObj
+    if (!startDateObj && endDateObj) startDateObj = endDateObj
+
+    // 3) 有明確日期時，StartDate 往前補一天，避免 API 吃掉第一天
+    const safeStartObj = startDateObj ? addDays(startDateObj, -1) : null
+    const safeStart = safeStartObj ? formatDateYYYYMMDD(safeStartObj) : rawStart
+    const safeEnd = endDateObj ? formatDateYYYYMMDD(endDateObj) : rawEnd
+
+    return {
+      StartDate: safeStart,
+      EndDate: safeEnd,
+    }
+  }
+
+  function hasAnyArrayData(obj: any) {
+    if (!obj || typeof obj !== "object") return false
+    return Object.values(obj).some((v: any) => Array.isArray(v) && v.length > 0)
+  }
+
+  async function fetchAsusHealthData(
+    auth: any,
+    range?: { StartDate?: string; EndDate?: string }
+  ) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || !sel.MID) {
+        asusHealthData.value = null
+        return
+      }
+
+      const { StartDate, EndDate } = normalizeHealthRange(range)
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/asus_healthData", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID,
+          StartDate,
+          EndDate,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK" && data.mapAsusHealthData) {
+        let finalData = data.mapAsusHealthData
+        // 預設最近 7 天若無資料，自動回退抓全部，避免圖表空白
+        if (!range?.StartDate && !range?.EndDate && !hasAnyArrayData(finalData)) {
+          const fallbackRes = await fetch("https://23700999.com:8081/HMA/api/bk/asus_healthData", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              AdminID: admin,
+              Token: token,
+              MID: sel.MID,
+              StartDate: "",
+              EndDate: "",
+            }),
+          })
+          const fallbackData = await fallbackRes.json()
+          if (fallbackData.Result === "OK" && fallbackData.mapAsusHealthData) {
+            finalData = fallbackData.mapAsusHealthData
+          }
+        }
+        asusHealthData.value = finalData
+      } else {
+        asusHealthData.value = null
+      }
+    } catch (error) {
+      console.error("取得華碩健康數據失敗：", error)
+      asusHealthData.value = null
+    }
+  }
+
+  async function fetchAcerHealthData(
+    auth: any,
+    range?: { StartDate?: string; EndDate?: string }
+  ) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || !sel.MID) {
+        acerHealthData.value = null
+        return
+      }
+
+      const { StartDate, EndDate } = normalizeHealthRange(range)
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/acer_healthData", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID,
+          StartDate,
+          EndDate,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK" && data.mapAcerHealthData) {
+        let finalData = data.mapAcerHealthData
+        // 預設最近 7 天若無資料，自動回退抓全部，避免圖表空白
+        if (!range?.StartDate && !range?.EndDate && !hasAnyArrayData(finalData)) {
+          const fallbackRes = await fetch("https://23700999.com:8081/HMA/api/bk/acer_healthData", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              AdminID: admin,
+              Token: token,
+              MID: sel.MID,
+              StartDate: "",
+              EndDate: "",
+            }),
+          })
+          const fallbackData = await fallbackRes.json()
+          if (fallbackData.Result === "OK" && fallbackData.mapAcerHealthData) {
+            finalData = fallbackData.mapAcerHealthData
+          }
+        }
+        acerHealthData.value = finalData
+      } else {
+        acerHealthData.value = null
+      }
+    } catch (error) {
+      console.error("取得宏碁指環健康數據失敗：", error)
+      acerHealthData.value = null
+    }
+  }
+
+  async function fetchGarminHealthData(
+    auth: any,
+    range?: { StartDate?: string; EndDate?: string }
+  ) {
+    try {
+      const { token, admin, sel } = auth
+      if (!token || !admin || !sel.MID) {
+        garminHealthData.value = null
+        return
+      }
+
+      const { StartDate, EndDate } = normalizeHealthRange(range)
+
+      const res = await fetch("https://23700999.com:8081/HMA/api/bk/garmin_healthData", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AdminID: admin,
+          Token: token,
+          MID: sel.MID,
+          StartDate,
+          EndDate,
+        }),
+      })
+
+      const data = await res.json()
+      if (data.Result === "OK" && data.mapGarminHealthData) {
+        let finalData = data.mapGarminHealthData
+        // 預設最近 7 天若無資料，自動回退抓全部，避免圖表空白
+        if (!range?.StartDate && !range?.EndDate && !hasAnyArrayData(finalData)) {
+          const fallbackRes = await fetch("https://23700999.com:8081/HMA/api/bk/garmin_healthData", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              AdminID: admin,
+              Token: token,
+              MID: sel.MID,
+              StartDate: "",
+              EndDate: "",
+            }),
+          })
+          const fallbackData = await fallbackRes.json()
+          if (fallbackData.Result === "OK" && fallbackData.mapGarminHealthData) {
+            finalData = fallbackData.mapGarminHealthData
+          }
+        }
+        garminHealthData.value = finalData
+      } else {
+        garminHealthData.value = null
+      }
+    } catch (error) {
+      console.error("取得 Garmin 健康數據失敗：", error)
+      garminHealthData.value = null
+    }
+  }
+
+  function clear() {
+    member.value = null
+    currentOrder.value = null
+    orderList.value = []
+    lastUpdated.value = ''
+    hrvRecords.value = []
+    ansRecords.value = []
+    lifeRecords.value = []
+    childANS.value = []
+    homeOrders.value = []
+    videoRecords.value = []
+    appRecords.value = []
+    healthLogRecords.value = []
+    weeklySummaryRecords.value = []
+    favoriteTPointsList.value = []
+    favoriteUseRecordList.value = []
+    stabilityAllList.value = []
+    stableCareSensorList.value = []
+    memberLastStatus.value = null
+    favoriteMIDList.value = []
+    optDetailList.value = []
+    vivoWatchList.value = []
+    asusHealthData.value = null
+    acerHealthData.value = null
+    garminHealthData.value = null
+    hasFetched.value = false
+  }
+
+  return {
+    // 狀態
+    member,
+    currentOrder,
+    orderList,
+    lastUpdated,
+    hrvRecords,
+    ansRecords,
+    lifeRecords,
+    childANS,
+    homeOrders,
+    videoRecords,
+    appRecords,
+    healthLogRecords,
+    weeklySummaryRecords,
+    favoriteTPointsList,
+    favoriteMIDList,
+    favoriteUseRecordList,
+    stabilityAllList,
+    stableCareSensorList,
+    memberLastStatus,
+    optDetailList,
+    vivoWatchList,
+    asusHealthData,
+    acerHealthData,
+    garminHealthData,
+    hasFetched,
+    // 方法
+    fetchAll,
+    fetchHealthLog,
+    fetchWeeklySummary,
+    fetchFavoriteTPointsList,
+    fetchStabilityAll,
+    fetchStabilityDetail,
+    fetchStableCareSensorList,
+    fetchMemberLastStatus,
+    fetchFavoriteMIDList,
+    fetchFavoriteTPointsMIDUseRecordList,
+    fetchOptDetailMIDList,
+    fetchVivoWatchList,
+    fetchAsusHealthData,
+    fetchAcerHealthData,
+    fetchGarminHealthData,
+    clear,
+  }
+}) 

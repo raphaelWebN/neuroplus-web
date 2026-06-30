@@ -1,0 +1,1215 @@
+<template>
+  <div class="healthLogWrap">
+    <div class="healthLogContent">
+      <TitleMenu Text="健康日誌" positionType="sticky" link="/robotdemo" />
+
+      <!-- 切換標籤 -->
+      <div class="tab-section">
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'log' }"
+          @click="activeTab = 'log'"
+        >
+          日誌
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'summary' }"
+          @click="activeTab = 'summary'"
+        >
+          本週摘要
+        </button>
+      </div>
+
+      <!-- 週別選擇器（僅在本週摘要時顯示） -->
+      <div class="week-selector" v-if="activeTab === 'summary'">
+        <button class="week-nav-btn" @click="goToPreviousWeek" disabled>
+          <img
+            src="/assets/imgs/arrowDown2.svg"
+            alt="上一週"
+            class="week-arrow left disabled"
+          />
+        </button>
+        <div class="week-range">
+          {{ weekRangeText }}
+        </div>
+        <button class="week-nav-btn" @click="goToNextWeek" disabled>
+          <img
+            src="/assets/imgs/arrowDown2.svg"
+            alt="下一週"
+            class="week-arrow right disabled"
+          />
+        </button>
+      </div>
+
+      <div class="total-count" v-if="isDataReady && activeTab === 'log'">
+        總共 {{ filteredLogs.length }} 筆
+      </div>
+
+      <!-- 載入狀態 -->
+      <div v-if="isLoading" class="loading-container">
+        <div class="loading-card">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">載入健康日誌中...</div>
+        </div>
+      </div>
+
+      <!-- 日誌列表 -->
+      <div
+        v-else-if="
+          isDataReady && activeTab === 'log' && filteredLogs.length > 0
+        "
+        class="log-list"
+      >
+        <div class="timeline-container">
+          <div class="log-item" v-for="log in filteredLogs" :key="log.id">
+            <div class="log-content-wrapper">
+              <div class="log-date">
+                {{ formatDate(log.date || log.timestamp) }}
+              </div>
+
+              <!-- 口述內容區塊 -->
+              <div
+                class="content-section"
+                v-if="log.preSoundNote && log.preSoundNote.trim()"
+              >
+                <div
+                  class="section-header"
+                  @click="
+                    isExpandable(log.id, 'oral') &&
+                      toggleSection(log.id, 'oral')
+                  "
+                >
+                  <span class="section-title">口述內容</span>
+                  <img
+                    v-if="isExpandable(log.id, 'oral')"
+                    src="/assets/imgs/arrowDown2.svg"
+                    alt="展開/收合"
+                    class="section-chevron"
+                    :class="{
+                      rotated: !expandedSections[`${log.id}-oral`],
+                    }"
+                  />
+                </div>
+
+                <div
+                  class="section-content"
+                  :class="{
+                    expanded: expandedSections[`${log.id}-oral`],
+                  }"
+                >
+                  {{ log.preSoundNote }}
+                </div>
+              </div>
+
+              <!-- <div
+                class="timeline-line"
+                v-if="log.preSoundNote && log.preSoundNote.trim()"
+              ></div> -->
+              <!-- AI摘要內容區塊 -->
+              <!-- <div
+                class="content-section"
+                v-if="log.content && log.content.trim()"
+              >
+                <div
+                  class="section-header"
+                  @click="
+                    isExpandable(log.id, 'ai') && toggleSection(log.id, 'ai')
+                  "
+                >
+                  <span class="section-title">AI摘要內容</span>
+                  <img
+                    v-if="isExpandable(log.id, 'ai')"
+                    src="/assets/imgs/arrowDown2.svg"
+                    alt="展開/收合"
+                    class="section-chevron"
+                    :class="{
+                      rotated: !expandedSections[`${log.id}-ai`],
+                    }"
+                  />
+                </div>
+                <div
+                  class="section-content"
+                  :class="{
+                    expanded: expandedSections[`${log.id}-ai`],
+                  }"
+                >
+                  {{ log.content }}
+                </div>
+              </div> -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 本週摘要 -->
+      <div
+        v-else-if="isDataReady && activeTab === 'summary'"
+        class="summary-container"
+      >
+        <!-- 載入狀態 -->
+        <div v-if="isSummaryLoading" class="loading-container">
+          <div class="loading-card">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">正在彙整本週摘要...</div>
+          </div>
+        </div>
+        <!-- 摘要內容 -->
+        <div v-else-if="weeklySummary" class="summary-card">
+          <div class="summary-content">
+            {{ weeklySummary }}
+          </div>
+        </div>
+        <!-- 空狀態 -->
+        <div v-else class="empty-state">
+          <div class="empty-card">
+            <div class="empty-character">
+              <img
+                src="/assets/imgs/robotSad.png"
+                alt="空狀態角色"
+                class="character-img"
+              />
+            </div>
+            <div class="empty-message">目前沒有資料</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 空狀態 -->
+      <div
+        v-else-if="
+          isDataReady && activeTab === 'log' && filteredLogs.length === 0
+        "
+        class="empty-state"
+      >
+        <div class="empty-card">
+          <div class="empty-character">
+            <img
+              src="/assets/imgs/robotSad.png"
+              alt="空狀態角色"
+              class="character-img"
+            />
+          </div>
+          <div class="empty-message">目前沒有資料</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, watch } from "vue";
+import TitleMenu from "~/components/TitleMenu.vue";
+import BottomNav from "~/components/BottomNav.vue";
+
+// 響應式數據
+const localData = localStorage.getItem("userData");
+const localobj = localData ? JSON.parse(localData) : null;
+
+const activeTab = ref("log"); // 'log' 或 'summary'
+const expandedSections = ref({});
+const expandableSections = ref({});
+const healthLogs = ref([]);
+const currentWeekStart = ref(null); // 當前選中的週開始日期
+
+// 載入狀態管理
+const isLoading = ref(true);
+const isDataReady = ref(false);
+const isSummaryLoading = ref(false); // 本週摘要載入狀態
+
+// API URL（參考 robotDemo.vue）
+const TEXT_WEBHOOK_URL =
+  "https://23700999.com:8081/push_notification/api/chatgpt/ask";
+
+// 獲取本週的開始日期（週一）
+const getWeekStart = (date = new Date()) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0); // 重置時間為 00:00:00
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 調整到週一
+  const weekStart = new Date(d);
+  weekStart.setDate(diff);
+  weekStart.setHours(0, 0, 0, 0); // 確保時間為 00:00:00
+  return weekStart;
+};
+
+// 獲取本週的結束日期（今天，不是週日）
+const getWeekEnd = (weekStart) => {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // 設定為今天的最後一刻
+  return today;
+};
+
+// 初始化當前週
+const initCurrentWeek = () => {
+  currentWeekStart.value = getWeekStart();
+};
+
+// 週範圍文字（從週一到今天）
+const weekRangeText = computed(() => {
+  if (!currentWeekStart.value) return "";
+  const today = new Date();
+  const startStr = formatDateRange(currentWeekStart.value);
+  const endStr = formatDateRange(today);
+  return `${startStr} - ${endStr}`;
+});
+
+// 是否為當前週
+const isCurrentWeek = computed(() => {
+  if (!currentWeekStart.value) return true;
+  const today = new Date();
+  const currentWeekStartDate = getWeekStart(today);
+  return currentWeekStart.value.getTime() === currentWeekStartDate.getTime();
+});
+
+// 格式化日期範圍（YYYY/MM/DD）
+const formatDateRange = (date) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const day = date.getDate().toString().padStart(2, "0");
+  return `${year}/${month}/${day}`;
+};
+
+// 解析多種日期格式，避免本地字串格式被 new Date 判定為 Invalid Date
+const parseLogDate = (value) => {
+  if (!value) return new Date(NaN);
+  if (value instanceof Date) return value;
+  if (typeof value === "number") return new Date(value);
+
+  const text = String(value).trim();
+  if (!text) return new Date(NaN);
+
+  // YYYY-MM-DD HH:mm:ss
+  if (text.includes("-") && text.includes(" ")) {
+    const [datePart, timePart = "00:00:00"] = text.split(" ");
+    const [y, m, d] = datePart.split("-").map((n) => parseInt(n, 10));
+    const [hh = "0", mm = "0", ss = "0"] = timePart.split(":");
+    return new Date(y, (m || 1) - 1, d || 1, +hh, +mm, +ss);
+  }
+
+  // YYYY/MM/DD HH:mm:ss 或 YYYY/MM/DD 上午/下午 HH:mm:ss
+  if (text.includes("/") && text.includes(" ")) {
+    const match = text.match(
+      /^(\d{4})\/(\d{1,2})\/(\d{1,2})\s*(上午|下午)?\s*(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/i
+    );
+    if (match) {
+      const [, y, m, d, ampm, h, min, sec] = match;
+      let hour = parseInt(h, 10);
+      if (ampm === "下午" && hour < 12) hour += 12;
+      if (ampm === "上午" && hour === 12) hour = 0;
+      return new Date(
+        parseInt(y, 10),
+        parseInt(m, 10) - 1,
+        parseInt(d, 10),
+        hour,
+        parseInt(min, 10),
+        parseInt(sec || "0", 10)
+      );
+    }
+  }
+
+  // 其他格式交給原生解析
+  return new Date(text);
+};
+
+// ✅ 顯示全部日誌（不再限制為本週）
+const filteredLogs = computed(() => {
+  if (!healthLogs.value.length) {
+    return [];
+  }
+
+  // 直接返回所有日誌，按時間降序排列（最新的在前面）
+  return healthLogs.value
+    .sort(
+      (a, b) =>
+        parseLogDate(b.date || b.timestamp) - parseLogDate(a.date || a.timestamp)
+    );
+});
+
+// 本週摘要（使用 ref 而不是 computed，因為需要異步載入）
+const weeklySummary = ref("");
+
+// 調用 API 彙整本週摘要（雖然日誌顯示全部，但摘要仍只顯示本週）
+const generateWeeklySummary = async () => {
+  if (activeTab.value !== "summary") {
+    weeklySummary.value = "";
+    return;
+  }
+
+  // ✅ 先篩選本週的日誌（摘要只顯示本週）
+  if (!currentWeekStart.value) {
+    weeklySummary.value = "";
+    return;
+  }
+
+  // 確保 currentWeekStart 的時間為 00:00:00
+  const weekStart = new Date(currentWeekStart.value);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+
+  const weekLogs = healthLogs.value.filter((log) => {
+    if (!log.date && !log.timestamp) return false;
+
+    const logDate = parseLogDate(log.date || log.timestamp);
+    if (Number.isNaN(logDate.getTime())) return false;
+
+    // 只比較日期部分，忽略時間
+    const logDateOnly = new Date(logDate);
+    logDateOnly.setHours(0, 0, 0, 0);
+
+    return logDateOnly >= weekStart && logDate <= today;
+  });
+
+  if (!weekLogs.length) {
+    weeklySummary.value = "";
+    return;
+  }
+
+  // 以「口述內容」作為本週摘要主資料來源，避免拿 AI 結果再摘要造成失真
+  const sourceLogs = weekLogs
+    .filter(
+      (log) =>
+        (log.preSoundNote && log.preSoundNote.trim()) ||
+        (log.content && log.content.trim())
+    )
+    .map((log) => {
+      const dateStr = formatDate(log.date || log.timestamp);
+      const sourceText = (log.preSoundNote || log.content || "").trim();
+      return {
+        date: dateStr,
+        content: sourceText,
+      };
+    });
+
+  if (sourceLogs.length === 0) {
+    weeklySummary.value = "";
+    return;
+  }
+
+  // 準備要送給 AI 的內容
+  const summaryParts = sourceLogs.map(
+    (item, index) => `${index + 1}. ${item.date}\n${item.content}`
+  );
+  const combinedSummary = summaryParts.join("\n\n");
+
+  // 調用 API 彙整摘要
+  isSummaryLoading.value = true;
+  try {
+    const response = await fetch(TEXT_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        systemMessage: `你是一位健康管理 app 內的對話式紀錄整理機器人。 任務是根據患者最近七天內的對話內容，整理可閱讀的一週症狀與生活摘要。
+
+你不是醫療人員。 不提供診斷、不解釋原因、不判斷嚴重度、不給建議； 僅整理患者原話，安全、簡單呈現。
+
+
+語言規則
+
+1. 七天對話 全文英文 → 英文輸出
+
+2. 只要出現任何中文（含繁體）→ 繁體中文輸出
+
+3. 不翻譯、不調整語氣
+
+4. 英文次數格式：mentioned X times this week
+
+
+核心原則
+
+1. 僅使用患者原文
+
+2. 不補充未出現資訊
+
+3. 不做任何醫療推論
+
+4. 簡短、可快速閱讀
+
+5. 症狀名稱與描述不重複
+
+
+類型判斷
+
+· 睡眠、情緒、食慾、緊繃 → 症狀
+
+· 人的感受或狀態 → 症狀
+
+· 事件或情境 → 生活
+
+
+症狀規則
+
+1. 僅整理患者主動提到的不舒服
+
+2. 症狀名稱用患者原話，不合併
+
+3. 語意相近可並列（逗號分隔），次數各自計算
+
+4. 症狀需標示歸類（呈現用）：
+
+o 緊繃 → 身體
+
+o 睡眠相關 → 睡眠
+
+o 喉嚨相關 → 喉嚨
+
+o 其餘 → 可辨識部位
+
+o 無法辨識 → 全身
+
+症狀呈現
+
+· 避免歸類與症狀同詞重複
+
+· 若重複，改為：歸類：狀態
+
+· 僅使用患者原文詞彙 （例：睡眠：不好／喉嚨：疼痛／身體：緊繃）
+
+
+次數
+
+· 講幾次記幾次，不合併、不去重
+
+· 中文：本週提及 X 次
+
+
+生活（含藥品）
+
+1. 僅記錄事件，不解釋
+
+2. 同類事件可合併
+
+3. 同句含感受＋事件：
+
+o 感受 → 症狀
+
+o 事件 → 生活
+
+藥品
+
+· 永遠列生活第 1 項
+
+· 依出現順序
+
+· 格式：藥名-數量-頻率（原文）
+
+· 使用方式未變不重複
+
+· 有更改 → 新增一筆＋日期＋「改」
+
+
+固定輸出格式
+
+中文
+
+這週你提到的狀況有
+
+症狀
+
+症狀名稱：描述 本週提及X次
+
+
+生活
+
+1 事件描述
+
+
+我們幫您的身體變化紀錄起來，請您放心。
+
+英文（全文英文時）
+
+This week, you mentioned the following:
+
+Symptoms
+
+Symptom: description, mentioned X times this week
+
+Lifestyle
+
+1. Event description
+
+We’ve recorded these body changes for you. Please feel at ease.
+
+
+無資料
+
+· 中文：這週還沒有新的留言唷，請您想到什麼，隨時都可以跟我們說。
+
+· 英文：There were no new messages this week. Feel free to share anything with us anytime.
+
+  `,
+        message: `以下是本週（${weekRangeText.value}）的患者留言內容，共 ${sourceLogs.length} 筆記錄：\n\n${combinedSummary}\n\n請依據以上原始文字，整理成一份「病情&生活紀錄摘要」。\n\n重要：結尾固定說明中，請將「日期範圍」替換為「${weekRangeText.value}」，完整結尾說明應為：\n「以上內容我已幫您完成紀錄並整理（${weekRangeText.value}），後續會提供給醫師了解與參考；請放心，我們會陪著您把狀況清楚整理下來。」`,
+        model: "gpt-5-mini",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API 調用失敗: ${response.status}`);
+    }
+
+    let answerText = "";
+
+    // 嘗試從 Header 取回文字（X-Answer）
+    const rawHeader = response.headers.get("x-answer");
+    if (rawHeader) {
+      try {
+        answerText = decodeURIComponent(rawHeader);
+      } catch {
+        answerText = rawHeader;
+      }
+    }
+
+    // 如果 Header 沒有，嘗試從 JSON 回應中取得
+    if (!answerText) {
+      let data = null;
+      try {
+        data = await response.clone().json();
+      } catch {
+        try {
+          const txt = await response.text();
+          if (txt) answerText = txt;
+        } catch {}
+      }
+
+      if (data) {
+        const pick = (obj) => {
+          if (!obj) return "";
+          if (typeof obj === "string") return obj;
+          const keys = [
+            "response",
+            "bot",
+            "answer",
+            "text",
+            "message",
+            "content",
+            "output",
+          ];
+          for (const k of keys) {
+            const v = obj[k];
+            if (typeof v === "string" && v.trim()) return v;
+            if (v && typeof v === "object") {
+              const inner = pick(v);
+              if (inner) return inner;
+            }
+          }
+          return "";
+        };
+        answerText = pick(data);
+      }
+    }
+
+    weeklySummary.value =
+      answerText.trim() ||
+      `本週健康狀況摘要\n\n${combinedSummary}\n\n---\n以上為本週（${weekRangeText.value}）的健康日誌彙整，共 ${sourceLogs.length} 筆記錄。`;
+  } catch (error) {
+    console.error("彙整本週摘要失敗:", error);
+    // 如果 API 失敗，使用簡單的彙整
+    weeklySummary.value = `本週健康狀況摘要\n\n${combinedSummary}\n\n---\n以上為本週（${weekRangeText.value}）的健康日誌彙整，共 ${sourceLogs.length} 筆記錄。`;
+  } finally {
+    isSummaryLoading.value = false;
+  }
+};
+
+// 監聽 activeTab 和 healthLogs 變化，自動生成摘要
+watch(
+  [() => activeTab.value, () => healthLogs.value.length],
+  () => {
+    // 確保 currentWeekStart 已初始化
+    if (!currentWeekStart.value) {
+      initCurrentWeek();
+    }
+    
+    if (activeTab.value === "summary") {
+      generateWeeklySummary();
+    }
+  },
+  { immediate: true }
+);
+
+// 方法
+const loadHealthLogs = async () => {
+  isLoading.value = true;
+  isDataReady.value = false;
+
+  try {
+    // ✅ 從 robotDemo_healthLogs 讀取（優先）
+    const healthLogsKey = "robotDemo_healthLogs";
+    const healthLogsData = localStorage.getItem(healthLogsKey);
+    const healthLogsArray = healthLogsData ? JSON.parse(healthLogsData) : [];
+
+    // ✅ 從 robotDemo_chatHistory 讀取聊天記錄
+    const chatHistoryKey = "robotDemo_chatHistory";
+    const chatHistoryData = localStorage.getItem(chatHistoryKey);
+    const chatHistoryArray = chatHistoryData ? JSON.parse(chatHistoryData) : [];
+
+    console.log("從 localStorage 讀取的健康日誌:", healthLogsArray);
+    console.log("從 localStorage 讀取的聊天記錄:", chatHistoryArray);
+
+    // 合併兩個來源的資料
+    const allLogs = [];
+
+    // 1. 從 robotDemo_healthLogs 讀取（已有完整格式）
+    healthLogsArray.forEach((item) => {
+      allLogs.push({
+        id: item.id || Date.now(),
+        date: item.date || item.timestamp,
+        timestamp: item.timestamp || item.date,
+        type: item.type || "summary",
+        content: item.content || item.Note || "", // AI 摘要內容
+        preSoundNote: item.preSoundNote || item.originalInput || "", // 口述內容
+      });
+    });
+
+    // 2. 從 robotDemo_chatHistory 讀取（需要轉換格式）
+    chatHistoryArray.forEach((item) => {
+      // 只處理有 user 和 bot 的記錄（完整的對話）
+      if (item.user && item.bot) {
+        allLogs.push({
+          id: item.id || item.ts || Date.now(),
+          date: item.timestamp || item.inputTime || new Date(item.ts).toISOString(),
+          timestamp: item.timestamp || item.inputTime || new Date(item.ts).toISOString(),
+          type: "summary",
+          content: item.bot || "", // AI 回覆作為摘要內容
+          preSoundNote: item.user || "", // 用戶輸入作為口述內容
+        });
+      }
+    });
+
+    // 轉換所有日誌資料並去重（根據 id）
+    const uniqueLogsMap = new Map();
+    allLogs.forEach((log) => {
+      if (!uniqueLogsMap.has(log.id)) {
+        uniqueLogsMap.set(log.id, log);
+      }
+    });
+
+    healthLogs.value = Array.from(uniqueLogsMap.values())
+      .sort(
+        (a, b) =>
+          parseLogDate(b.date || b.timestamp) - parseLogDate(a.date || a.timestamp)
+      );
+
+    // ✅ 根據字數決定這一塊「需不需要展開箭頭」
+    const MAX_PREVIEW_CHARS = 50;
+
+    healthLogs.value.forEach((log) => {
+      if (log.preSoundNote && log.preSoundNote.trim()) {
+        const key = `${log.id}-oral`;
+        expandableSections.value[key] =
+          log.preSoundNote.trim().length > MAX_PREVIEW_CHARS;
+      }
+
+      if (log.content && log.content.trim()) {
+        const key = `${log.id}-ai`;
+        expandableSections.value[key] =
+          log.content.trim().length > MAX_PREVIEW_CHARS;
+      }
+    });
+
+    console.log("轉換後的健康日誌:", healthLogs.value);
+    console.log("健康日誌總數:", healthLogs.value.length);
+  } catch (error) {
+    console.error("讀取健康日誌失敗:", error);
+    healthLogs.value = [];
+  } finally {
+    isLoading.value = false;
+    isDataReady.value = true;
+  }
+};
+
+const toggleSection = (logId, sectionType) => {
+  const key = `${logId}-${sectionType}`;
+  expandedSections.value[key] = !expandedSections.value[key];
+};
+
+const isExpandable = (logId, sectionType) => {
+  const key = `${logId}-${sectionType}`;
+  return !!expandableSections.value[key];
+};
+
+const formatDate = (timestamp) => {
+  const date = parseLogDate(timestamp);
+  if (Number.isNaN(date.getTime())) return "--/-- --:--";
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  return `${month}/${day} ${hours}:${minutes}`;
+};
+
+// 切換到上一週（Demo 版本：不允許切換到過去）
+const goToPreviousWeek = () => {
+  // Demo 版本不允許切換到過去的週
+  return;
+};
+
+// 切換到下一週（Demo 版本：不允許切換到未來）
+const goToNextWeek = () => {
+  // Demo 版本不允許切換到未來的週
+  return;
+};
+
+// 監聽健康日誌更新事件（同頁面內）
+if (process.client) {
+  // 監聽健康日誌更新事件
+  window.addEventListener('healthLogsUpdated', () => {
+    console.log('收到 healthLogsUpdated 事件，重新載入健康日誌');
+    loadHealthLogs();
+  });
+  
+  // 監聽聊天記錄更新事件
+  window.addEventListener('chatHistoryUpdated', () => {
+    console.log('收到 chatHistoryUpdated 事件，重新載入健康日誌');
+    loadHealthLogs();
+  });
+  
+  // 也監聽 storage 事件（不同標籤頁之間）
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'robotDemo_healthLogs' || e.key === 'robotDemo_chatHistory') {
+      console.log(`收到 storage 事件，key: ${e.key}，重新載入健康日誌`);
+      loadHealthLogs();
+    }
+  });
+}
+
+// 生命週期
+onMounted(async () => {
+  initCurrentWeek();
+  await loadHealthLogs();
+});
+</script>
+
+<style lang="scss" scoped>
+.healthLogWrap {
+  @include gradientBg();
+  width: 100%;
+  max-height: 100vh;
+  padding: 16px 0 104px 0;
+  position: relative;
+  overflow-y:  hidden;
+  overflow-y: visible;
+  @media (min-width: 667px) {
+    max-height: none;
+    overflow-y: visible;
+  }
+  .healthLogContent {
+    max-width: 768px;
+    margin: 0 auto;
+    .titleMenu:deep > div {
+      left: 16px;
+    }
+  }
+}
+
+.tab-section {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  margin: 0.25rem 1rem;
+  border-radius: var(--Radius-r-50, 50px);
+  background: var(--Secondary-100, #f5f7fa);
+  box-shadow: 2px 4px 12px 0
+    var(--secondary-300-opacity-70, rgba(177, 192, 216, 0.7));
+  .tab-btn {
+    flex: 1;
+    padding: .35rem;
+    border: none;
+    background: #f5f7fa;
+    border-radius: 50px;
+    color: var(--neutral-500-opacity-70, rgba(102, 102, 102, 0.7));
+    font-size: var(--Text-font-size-18, 18px);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    color: var(--Primary-default, #74bc1f);
+    font-size: var(--Text-font-size-18, 18px);
+    font-style: normal;
+    font-weight: 400;
+
+    letter-spacing: 2.7px;
+
+    &.active {
+      border-radius: var(--Radius-r-50, 50px);
+      background: var(--Secondary-100, #f5f7fa);
+      box-shadow: 2px 4px 12px 0
+        var(--secondary-300-opacity-70, rgba(177, 192, 216, 0.7)) inset;
+    }
+
+    &:hover:not(.active) {
+      background: var(--Secondary-100, #f5f7fa);
+    }
+  }
+}
+
+.week-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+ 
+  padding: .25rem;
+  margin-bottom: 1rem;
+
+  .week-nav-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s ease;
+
+    &:disabled {
+      cursor: not-allowed;
+    }
+
+    .week-arrow {
+      width: 20px;
+      height: 20px;
+      transition: opacity 0.2s ease;
+
+      &.left {
+        transform: rotate(90deg);
+      }
+
+      &.right {
+        transform: rotate(-90deg);
+      }
+
+      &.disabled {
+        opacity: 0.3;
+        filter: grayscale(100%);
+      }
+    }
+  }
+
+  .week-range {
+    color: var(--Neutral-700, #4a5568);
+    font-size: var(--Text-font-size-18, 18px);
+    font-weight: 500;
+    min-width: 200px;
+    text-align: center;
+  }
+}
+
+.total-count {
+  color: var(--Secondary-300, #b1c0d8);
+  text-align: right;
+  font-size: var(--Text-font-size-18, 18px);
+  font-style: normal;
+  font-weight: 400;
+
+  letter-spacing: 0.072px;
+  padding-right: 1.25rem;
+  margin-top: .75rem;
+  margin-bottom: 0.75rem;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 2rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.loading-card {
+  @include neumorphismOuter($radius: 20px, $padding: 3rem 2rem);
+  width: 100%;
+  text-align: center;
+
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(116, 188, 31, 0.3);
+    border-top: 3px solid #74bc1f;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1.5rem;
+  }
+
+  .loading-text {
+    color: var(--Neutral-700, #4a5568);
+    font-size: 18px;
+    font-weight: 500;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.log-list {
+  padding: 1rem;
+  max-height: calc(70vh - 32px);
+  overflow-y: auto;
+  @include scrollbarStyle();
+}
+
+.timeline-container {
+  position: relative;
+}
+
+.log-item {
+  position: relative;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.log-content-wrapper {
+  flex: 1;
+  @include neumorphismOuter($radius: 20px);
+  padding: 1rem;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.log-date {
+  color: var(--Neutral-black, #1e1e1e);
+  font-size: var(--Text-font-size-18, 18px);
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  margin-bottom: 0.75rem;
+}
+
+.content-section {
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  .section-title {
+    color: var(--Neutral-500, #666);
+    text-align: center;
+    font-size: var(--Text-font-size-18, 18px);
+    font-style: normal;
+    font-weight: 700;
+
+    letter-spacing: 0.09px;
+  }
+
+  .section-chevron {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+    filter: brightness(0) saturate(100%) invert(58%) sepia(95%) saturate(2000%)
+      hue-rotate(60deg) brightness(100%) contrast(85%);
+    transform: rotate(180deg); // 預設向上（綠色向上箭頭）
+
+    &.rotated {
+      transform: rotate(0deg); // 收合時向下
+    }
+  }
+}
+
+.section-content {
+  color: var(--Neutral-500, #666);
+  font-size: var(--Text-font-size-16, 16px);
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: 0.064px;
+
+  // ✅ 預設兩行截斷
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; // 顯示 2 行
+  line-clamp: 2; // 標準屬性
+  overflow: hidden;
+
+  margin-top: 0.5rem;
+  word-break: break-word;
+  transition: all 0.3s ease;
+}
+
+.section-content.expanded {
+  // ✅ 展開時取消行數限制
+  -webkit-line-clamp: unset;
+  line-clamp: unset; // 標準屬性
+  max-height: none; // 保險用，可加可不加
+}
+
+.timeline-line {
+  background: var(--Secondary-300, #b1c0d8);
+  height: 1px;
+  width: 100%;
+  margin: 1rem 0;
+}
+
+.summary-container {
+  padding: 1rem;
+  min-height: 60vh;
+
+  .summary-card {
+    @include neumorphismOuter($radius: 20px);
+    padding: 1.5rem;
+    background: var(--Neutral-white, #fff);
+    
+
+    .summary-content {
+      color: var(--Neutral-700, #4a5568);
+      font-size: var(--Text-font-size-16, 16px);
+      font-style: normal;
+      font-weight: 400;
+      line-height: 1.8;
+      letter-spacing: 0.064px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  }
+}
+
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 60vh;
+  padding: 1rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+.empty-card {
+  @include neumorphismOuter();
+
+  width: 100%;
+  text-align: center;
+
+  .empty-character {
+    .character-img {
+      object-fit: contain;
+    }
+  }
+
+  .empty-message {
+    color: var(--Neutral-700, #4a5568);
+    font-size: 18px;
+    font-weight: 500;
+  }
+}
+
+.picker-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.picker-modal {
+  background: var(--Neutral-white, #fff);
+  border-radius: 16px;
+  padding: 1.5rem;
+  max-width: 300px;
+  width: 90%;
+  max-height: 400px;
+  overflow-y: auto;
+  @include neumorphismOuter(
+    $bgColor: var(--Neutral-white, #fff),
+    $radius: 16px,
+    $x: 0,
+    $y: 4px,
+    $blur: 12px
+  );
+
+  .picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+
+    h3 {
+      color: var(--Neutral-800, #2d3748);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: var(--Neutral-500, #666);
+      cursor: pointer;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.2s ease;
+
+      &:hover {
+        background: var(--Secondary-100, #f5f7fa);
+      }
+    }
+  }
+
+  .picker-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .picker-item {
+    padding: 0.75rem 1rem;
+    border: none;
+    background: var(--Secondary-50, #fafbfc);
+    border-radius: 8px;
+    color: var(--Neutral-700, #4a5568);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+
+    &:hover {
+      background: var(--Secondary-100, #f5f7fa);
+    }
+
+    &.active {
+      background: #74bc1f;
+      color: #fff;
+      font-weight: 600;
+    }
+  }
+}
+
+@include respond-to(md) {
+  .healthLogWrap {
+    max-width: 768px;
+    margin: 0 auto;
+  }
+}
+</style>

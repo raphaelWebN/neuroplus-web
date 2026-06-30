@@ -1,0 +1,654 @@
+<template>
+  <div class="infoWrap">
+    <div class="infoBox">
+      <!-- 姓名輸入 -->
+      <label for="name">姓名</label>
+      <div class="nameGroup">
+        <input
+          type="text"
+          placeholder="請輸入您的姓名(暱稱)"
+          v-model="localName"
+        />
+      </div>
+
+      <!-- 電話欄位 不可選 -->
+      <label for="phone" v-if="phoneShow">電話</label>
+      <div class="phoneGroup" v-if="phoneShow">
+        <input type="text" :value="phone" disabled />
+        <img class="icon2" src="../assets/imgs/noWrap.svg" alt="" />
+      </div>
+
+      <!-- 信箱輸入 -->
+      <label for="email" v-if="emailShow">常用信箱</label>
+      <div class="emailGroup" v-if="emailShow">
+        <input type="email" placeholder="請輸入您的信箱" v-model="localEmail" />
+      </div>
+
+      <!-- 華碩註冊信箱 -->
+      <label for="asusEmail" v-if="asusEmailShow">華碩註冊信箱</label>
+      <div class="asusEmailGroup" v-if="asusEmailShow">
+        <input
+          type="email"
+          placeholder="請輸入華碩註冊信箱"
+          v-model="localAsusEmail"
+        />
+      </div>
+
+      <!-- 宏碁註冊信箱 -->
+      <label for="acerEmail" v-if="acerEmailShow">宏碁註冊信箱</label>
+      <div class="acerEmailGroup" v-if="acerEmailShow">
+        <input
+          type="email"
+          placeholder="請輸入宏碁註冊信箱"
+          v-model="localAcerEmail"
+        />
+      </div>
+
+      <!-- Garmin註冊信箱 -->
+      <label for="garminEmail" v-if="garminEmailShow">Garmin註冊信箱</label>
+      <div class="garminEmailGroup" v-if="garminEmailShow">
+        <input
+          type="email"
+          placeholder="請輸入Garmin註冊信箱"
+          v-model="localGarminEmail"
+        />
+      </div>
+
+      <!-- 身高輸入 -->
+      <label for="height">身高</label>
+      <div class="heightGroup">
+        <input type="text" placeholder="請輸入您的身高" v-model="localHeight" />
+      </div>
+
+      <!-- 體重輸入 -->
+      <label for="weight">體重</label>
+      <div class="weightGroup">
+        <input type="text" placeholder="請輸入您的體重" v-model="localWeight" />
+      </div>
+
+      <!-- 性別選擇 -->
+      <label for="sex">性別</label>
+      <div class="groupGroup">
+        <select
+          v-model="localSex"
+          class="custom-select"
+          :class="{ selected: localSex }"
+        >
+          <option value="" disabled selected hidden>請選擇您的性別</option>
+          <option value="1">男生</option>
+          <option value="2">女生</option>
+        </select>
+        <img class="icon2" src="../assets/imgs/arrowDown.svg" />
+      </div>
+
+      <!-- 生日選擇 -->
+      <label for="date">生日</label>
+      <div class="dateGroup">
+        <VueDatePicker
+          v-model="localDate"
+          :format="formatDate"
+          :locale="'zh-TW'"
+          :enable-time-picker="false"
+          cancel-text="取消"
+          select-text="確定"
+          :max-date="new Date()"
+          :placeholder="'請選擇您的生日'"
+          teleport="body"
+          no-today
+        />
+      </div>
+
+      <!-- 地址 -->
+      <label for="address" v-if="addressShow">地址</label>
+      <div class="addressGroup" v-if="addressShow">
+        <div class="city">
+          <select
+            v-model="selectedCity"
+            :class="{ selected: selectedCity }"
+            @change="updateAreas"
+          >
+            <option value="" disabled selected hidden>縣市</option>
+            <option
+              v-for="city in citiesData"
+              :key="city.CityName"
+              :value="city.CityName"
+            >
+              {{ city.CityName }}
+            </option>
+          </select>
+          <img class="icon2" src="../assets/imgs/arrowDown.svg" />
+        </div>
+
+        <div class="area">
+          <select v-model="selectedArea" :class="{ selected: selectedArea }">
+            <option value="" disabled selected hidden>鄉鎮地區</option>
+            <option
+              v-for="area in filteredAreas"
+              :key="area.AreaName"
+              :value="area.AreaName"
+            >
+              {{ area.AreaName }}
+            </option>
+          </select>
+          <img class="icon2" src="../assets/imgs/arrowDown.svg" />
+        </div>
+
+        <div class="address">
+          <input type="text" placeholder="輸入地址" v-model="inputAddress" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 送出按鈕 -->
+    <button class="infoSendBtn" @click="submitForm" :disabled="isSubmitDisabled">
+      {{ addressShow ? "儲存" : "確認" }}
+    </button>
+  </div>
+</template>
+
+<script>
+import { ref, watch, computed, onMounted } from "vue";
+import { zhTW } from "date-fns/locale";
+
+export default {
+  props: {
+    name: String,
+    height: String,
+    weight: String,
+    sex: String,
+    date: String,
+    city: String,
+    area: String,
+    address: String,
+    email: String,
+    asusEmail: String,
+    acerEmail: String,
+    garminEmail: String,
+    phoneShow: { type: Boolean, default: false },
+    addressShow: { type: Boolean, default: false },
+    emailShow: { type: Boolean, default: false },
+    asusEmailShow: { type: Boolean, default: false },
+    acerEmailShow: { type: Boolean, default: false },
+    garminEmailShow: { type: Boolean, default: false },
+  },
+
+  setup(props, { emit }) {
+    // ✅ props 解構出來，避免 template 出現 xxx is not defined
+    const {
+      phoneShow,
+      addressShow,
+      emailShow,
+      asusEmailShow,
+      acerEmailShow,
+      garminEmailShow,
+    } = props;
+
+    const localName = ref(props.name || "");
+    const localHeight = ref(props.height || "");
+    const localWeight = ref(props.weight || "");
+    const localSex = ref(props.sex || "");
+    const localDate = ref(null);
+
+    const localEmail = ref(props.email || "");
+    const localAsusEmail = ref(props.asusEmail || "");
+    const localAcerEmail = ref(props.acerEmail || "");
+    const localGarminEmail = ref(props.garminEmail || "");
+
+    const inputAddress = ref("");
+    const citiesData = ref([]);
+    const selectedCity = ref("");
+    const selectedArea = ref("");
+    const filteredAreas = ref([]);
+    const phone = ref("");
+
+    onMounted(async () => {
+      try {
+        const response = await fetch("/AllData.json");
+        if (response.ok) {
+          citiesData.value = await response.json();
+        } else {
+          console.error("Failed to load city data:", response.status);
+        }
+      } catch (error) {
+        console.error("Error loading city data:", error);
+      }
+
+      const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+      const memberData = userData.Member || userData;
+
+      localName.value = memberData.Name || "";
+      localHeight.value = memberData.Height || "";
+      localWeight.value = memberData.Weight || "";
+      localSex.value = memberData.Sex || "";
+
+      // 生日（支援民國/西元 yyyy/mm/dd）
+      if (memberData.Birthday && memberData.Birthday.includes("/")) {
+        try {
+          const parts = memberData.Birthday.split("/");
+          if (parts.length === 3) {
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            const fullYear = year < 200 ? year + 1911 : year;
+            localDate.value = new Date(fullYear, month, day);
+          }
+        } catch (e) {
+          console.error("生日格式解析錯誤:", e);
+          localDate.value = null;
+        }
+      } else {
+        localDate.value = null;
+      }
+
+      selectedCity.value = memberData.City || "";
+      selectedArea.value = memberData.Zone || "";
+      inputAddress.value = memberData.Address || "";
+      phone.value = memberData.Mobile || "";
+      localEmail.value = memberData.Mail || "";
+
+
+      localAsusEmail.value = memberData.AsusMail ?? "";
+localAcerEmail.value = memberData.AcerMail ?? "";
+localGarminEmail.value = memberData.GarminMail ?? "";
+
+
+      if (selectedCity.value) updateAreas(true);
+    });
+
+    const updateAreas = (initial = false) => {
+      const city = citiesData.value.find((c) => c.CityName === selectedCity.value);
+      filteredAreas.value = city ? city.AreaList : [];
+
+      if (
+        !initial ||
+        !filteredAreas.value.some((a) => a.AreaName === selectedArea.value)
+      ) {
+        selectedArea.value = "";
+      }
+    };
+
+    // 民國年顯示
+    const formatDate = (date) => {
+      if (!date) return "";
+      const rocYear = date.getFullYear() - 1911;
+      return `${rocYear}年${date.getMonth() + 1}月${date.getDate()}日`;
+    };
+
+    const zhTWLocale = zhTW; // 若你有用到可留著，沒用到也可刪
+
+    const isSubmitDisabled = computed(() => {
+      return (
+        !localName.value ||
+        !localHeight.value ||
+        !localWeight.value ||
+        !localSex.value ||
+        !localDate.value
+      );
+    });
+
+    const submitForm = () => {
+      emit("submit", {
+        name: localName.value,
+        height: localHeight.value,
+        weight: localWeight.value,
+        sex: localSex.value,
+        date: localDate.value,
+        city: selectedCity.value,
+        area: selectedArea.value,
+        address: inputAddress.value,
+        email: localEmail.value,
+        asusEmail: localAsusEmail.value,
+        acerEmail: localAcerEmail.value,
+        garminEmail: localGarminEmail.value,
+      });
+    };
+
+    // ✅ 一般欄位雙向更新
+    watch(localName, (v) => emit("update:name", v));
+    watch(localHeight, (v) => emit("update:height", v));
+    watch(localWeight, (v) => emit("update:weight", v));
+    watch(localSex, (v) => emit("update:sex", v));
+    watch(localDate, (v) => emit("update:date", v));
+    watch(selectedCity, (v) => emit("update:city", v));
+    watch(selectedArea, (v) => emit("update:area", v));
+    watch(inputAddress, (v) => emit("update:address", v));
+    watch(localEmail, (v) => emit("update:email", v));
+
+    // ✅ 三家註冊信箱雙向更新
+    watch(localAsusEmail, (v) => emit("update:asusEmail", v));
+    watch(localAcerEmail, (v) => emit("update:acerEmail", v));
+    watch(localGarminEmail, (v) => emit("update:garminEmail", v));
+
+    return {
+      // fields
+      localName,
+      localHeight,
+      localWeight,
+      localSex,
+      localDate,
+      localEmail,
+      localAsusEmail,
+      localAcerEmail,
+      localGarminEmail,
+
+      inputAddress,
+      citiesData,
+      selectedCity,
+      selectedArea,
+      filteredAreas,
+      phone,
+
+      // funcs / computed
+      updateAreas,
+      submitForm,
+      isSubmitDisabled,
+      formatDate,
+
+      // show flags
+      phoneShow,
+      addressShow,
+      emailShow,
+      asusEmailShow,
+      acerEmailShow,
+      garminEmailShow,
+    };
+  },
+};
+</script>
+
+
+<style lang="scss">
+.infoWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+
+  .infoBox {
+    padding-bottom: 16px;
+    overflow: hidden;
+    overflow-y: scroll;
+  }
+
+  .custom-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background: url("../assets/imgs/arrow-down.svg") no-repeat right 10px center;
+    background-size: 12px;
+    color: $raphael-gray-300;
+    font-style: normal;
+    font-weight: 400;
+    letter-spacing: 2.7px;
+    line-height: 22px;
+    flex: 1;
+    width: 100%;
+  }
+
+  .custom-select.selected {
+    color: $raphael-green-400;
+  }
+  .dp__instance_calendar {
+    z-index: 1000;
+  }
+  label {
+    color: $raphael-gray-500;
+
+    font-size: 16px;
+    font-style: normal;
+    font-weight: 400;
+
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 0.5rem;
+    margin-left: 0.25rem;
+  }
+  .nameGroup,
+  .heightGroup,
+  .weightGroup,
+  .dateGroup,
+  .phoneGroup,
+  .emailGroup,
+  .asusEmailGroup,
+  .acerEmailGroup,
+  .garminEmailGroup {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    margin-bottom: 16px;
+    @include neumorphismOuter($radius: 50px, $padding: 10px 12px);
+    z-index: 10;
+
+    .icon1,
+    .icon2 {
+      width: 24px;
+      height: 24px;
+    }
+
+    .icon2 {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      &:hover,
+      &:active {
+        transform: scale(1.1);
+      }
+    }
+  }
+
+  .addressGroup {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 16px;
+    .city,
+    .area {
+      width: calc(100% / 2 - 8px);
+      position: relative;
+      select {
+        outline: none;
+        border: none;
+        @include neumorphismOuter($radius: 50px, $padding: 10px 12px);
+        width: 100%;
+        appearance: none;
+        color: $raphael-gray-300;
+        font-size: 18px;
+
+        &::placeholder {
+          color: $raphael-gray-300;
+          font-size: 18px;
+          font-weight: 400;
+        }
+
+        &::-ms-expand {
+          display: none;
+        }
+      }
+
+      .selected {
+        color: $raphael-green-400;
+      }
+
+      .icon1,
+      .icon2 {
+        width: 24px;
+        height: 24px;
+      }
+
+      .icon2 {
+        position: absolute;
+        top: 50%;
+        right: 16px;
+        transform: translateY(-50%);
+        z-index: 1;
+      }
+    }
+    .address {
+      width: 100%;
+      input[type="text"] {
+        outline: none;
+        border: none;
+        @include neumorphismOuter($radius: 50px, $padding: 10px 12px);
+
+        color: #74bc1f;
+
+        font-size: 18px;
+        font-style: normal;
+        font-weight: 400;
+        letter-spacing: 2.7px;
+        line-height: 22px;
+        flex: 1;
+        width: 100%;
+
+        &::placeholder {
+          font-size: 18px;
+          color: $raphael-gray-300;
+        }
+      }
+    }
+  }
+
+  .dateGroup {
+    display: flex;
+  }
+
+  .groupGroup {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
+    margin-bottom: 16px;
+    @include neumorphismOuter($radius: 50px, $padding: 10px 12px);
+    .icon1,
+    .icon2 {
+      width: 24px;
+      height: 24px;
+    }
+    .icon2 {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      &:hover,
+      &:active {
+        transform: scale(1.1);
+      }
+    }
+
+    select {
+      outline: none;
+      border: none;
+      width: 100%;
+      appearance: none;
+      color: $raphael-gray-300;
+      font-size: 18px;
+      font-style: normal;
+      font-weight: 400;
+      letter-spacing: 2.7px;
+      line-height: 22px;
+      flex: 1;
+      width: 100%;
+
+      &::placeholder {
+        color: $raphael-gray-300;
+        font-family: Inter;
+        font-size: 1.2rem;
+        font-weight: 400;
+      }
+
+      &::-ms-expand {
+        display: none;
+      }
+    }
+  }
+
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  input[type="email"] {
+    outline: none;
+    border: none;
+    background-color: transparent;
+    color: #74bc1f;
+
+    font-size: 18px;
+    font-style: normal;
+    font-weight: 400;
+    letter-spacing: 2.7px;
+    line-height: 22px;
+    flex: 1;
+    width: 100%;
+
+    &::placeholder {
+      font-size: 18px;
+      color: $raphael-gray-300;
+    }
+  }
+
+  .infoSendBtn {
+    color: $raphael-green-400;
+    width: 100%;
+    border: none;
+    font-size: 1.125rem;
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    transition: 0.25s ease;
+    cursor: pointer;
+    @include neumorphismOuter($radius: 50px, $padding: 8px 12px);
+
+    &:hover,
+    &:active {
+      @include neumorphismOuter(
+        $radius: 50px,
+        $padding: 8px 12px,
+        $x: 0,
+        $y: 0,
+        $blur: 6px
+      );
+    }
+
+    &:disabled {
+      @include neumorphismOuter($radius: 50px, $padding: 8px 12px);
+      color: $raphael-gray-300;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
+}
+
+.vue-datepicker {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid $raphael-gray-300;
+  padding: 16px;
+  font-size: 1.5rem;
+  color: $raphael-gray-500;
+
+  &::placeholder {
+    color: $raphael-gray-300;
+    font-weight: 400;
+  }
+
+  .vue-datepicker-input {
+    padding-left: 2.75rem;
+  }
+}
+
+.dp__input_wrap {
+  .dp__pointer {
+    border: none;
+    background-color: none;
+    width: 100%;
+    font-size: 18px;
+    background: #f5f7fa;
+    color: $raphael-green-400;
+    padding: 0;
+
+    &::placeholder {
+      color: $raphael-gray-400;
+      font-weight: 400;
+    }
+  }
+  svg {
+    display: none;
+  }
+}
+</style>

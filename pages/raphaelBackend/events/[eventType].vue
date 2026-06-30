@@ -1,0 +1,1390 @@
+<template>
+  <div class="seminarRegister">
+    <Sidebar />
+
+    <main class="content">
+      <header class="page-header">
+        <h2 class="title">
+          講座報名管理
+          <span class="count">({{ totalRegistrations }})</span>
+          <span v-if="selectedArea" class="area-tag">{{ selectedArea }}</span>
+          <span v-if="selectedEventDateLabel" class="date-tag">{{
+            selectedEventDateLabel
+          }}</span>
+        </h2>
+
+        <div class="header-actions">
+          <button class="back-btn" @click="goBack">返回</button>
+          <button class="export-btn" @click="exportCSV">匯出CSV</button>
+        </div>
+      </header>
+
+      <section class="stats double">
+        <div class="stat-card total">
+          <span>總報名數</span>
+          <strong>{{ totalRegistrations }}</strong>
+        </div>
+
+        <div class="stat-card checkin">
+          <span>報到人數</span>
+          <strong>{{ checkedInCount }}</strong>
+        </div>
+      </section>
+
+      <section class="toolbar">
+        <div class="search-wrapper">
+          <input
+            v-model="searchKeyword"
+            class="search"
+            type="text"
+            placeholder="搜尋姓名、手機、VIP、備註"
+            @input="resetPage"
+          />
+          <img src="/assets/imgs/backend/search.svg" alt="" />
+        </div>
+
+        <div class="toolbarTime-wrapper">
+          <VueDatePicker
+            v-model="dateRange"
+            range
+            :enable-time-picker="false"
+            format="yyyy/MM/dd"
+            placeholder="日期查詢"
+            teleport="body"
+          />
+          <img src="/assets/imgs/backend/search.svg" alt="" />
+        </div>
+      </section>
+
+      <section class="register-table">
+        <div class="table-row table-header">
+          <div class="name">姓名</div>
+          <div class="mobile">手機</div>
+          <div class="checkin-status">報到狀態</div>
+          <div class="created">報名時間</div>
+          <div class="note">備註</div>
+          <div class="action">操作</div>
+        </div>
+
+        <div v-if="loading" class="loading-row">載入中...</div>
+
+        <div v-else class="table-list">
+          <div
+            v-for="item in paginatedRegistrations"
+            :key="item.id"
+            class="table-row"
+          >
+            <div class="cell name" data-label="姓名">
+              <span class="avatar">{{ getInitial(item.name) }}</span>
+              <span>{{ item.name || "-" }}</span>
+            </div>
+
+            <div class="cell mobile" data-label="手機">
+              {{ item.mobile || "-" }}
+            </div>
+
+            <div
+              class="cell checkin-status"
+              data-label="報到狀態"
+              :class="{
+                checked: item.qrcodeCheck === 'true',
+                unchecked: item.qrcodeCheck !== 'true',
+              }"
+            >
+              <span>
+                {{ item.qrcodeCheck === "true" ? "已報到" : "未報到" }}
+              </span>
+            </div>
+
+            <div class="cell created" data-label="報名時間">
+              {{ item.createdAt || "-" }}
+            </div>
+
+            <div class="cell note" data-label="備註">
+              {{ item.note || "-" }}
+            </div>
+
+            <div class="cell action" data-label="操作">
+              <div class="action-buttons">
+                <button class="text-btn" @click="openDetail(item)">查看</button>
+                <a
+                  v-if="item.mobile"
+                  class="text-btn call"
+                  :href="`tel:${item.mobile}`"
+                >
+                  撥打
+                </a>
+                <button
+                  class="text-btn first-visit"
+                  @click="openFirstVisit(item)"
+                >
+                  會員資訊
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="!loading && filteredRegistrations.length === 0"
+          class="no-data"
+        >
+          <p>尚無資料</p>
+        </div>
+
+        <nav class="pagination" v-if="totalPages > 1">
+          <button
+            class="btn-page"
+            :disabled="currentPage === 1"
+            @click="gotoPage(1)"
+          >
+            &lt;&lt;
+          </button>
+
+          <button
+            class="btn-page"
+            :disabled="currentPage === 1"
+            @click="prevPage"
+          >
+            &lt;
+          </button>
+
+          <button
+            v-for="p in pageNumberList"
+            :key="p"
+            class="btn-page btn-page-number"
+            :class="{ active: currentPage === p }"
+            :disabled="p === '...'"
+            @click="typeof p === 'number' && gotoPage(p)"
+          >
+            {{ p }}
+          </button>
+
+          <button
+            class="btn-page"
+            :disabled="currentPage === totalPages"
+            @click="nextPage"
+          >
+            &gt;
+          </button>
+
+          <button
+            class="btn-page"
+            :disabled="currentPage === totalPages"
+            @click="gotoPage(totalPages)"
+          >
+            &gt;&gt;
+          </button>
+        </nav>
+      </section>
+
+      <div
+        v-if="detailVisible && selectedItem"
+        class="modal-mask"
+        @click.self="closeDetail"
+      >
+        <div class="modal">
+          <header class="modal-head">
+            <div>
+              <h3>{{ selectedItem.name }} 的報名資料</h3>
+              <p>活動代碼：{{ selectedItem.eventType }}</p>
+            </div>
+
+            <button class="close-btn" @click="closeDetail">×</button>
+          </header>
+
+          <section class="modal-body">
+            <div class="info-grid">
+              <span>姓名</span>
+              <strong>{{ selectedItem.name || "-" }}</strong>
+
+              <span>手機</span>
+              <strong>{{ selectedItem.mobile || "-" }}</strong>
+
+              <span>報名時間</span>
+              <strong>{{ selectedItem.createdAt || "-" }}</strong>
+
+              <span>備註</span>
+              <strong>{{ selectedItem.note || "-" }}</strong>
+
+              <span>報到狀態</span>
+              <strong>{{
+                selectedItem.qrcodeCheck === "true" ? "已報到" : "未報到"
+              }}</strong>
+
+              <span>報到時間</span>
+              <strong class="break">{{
+                selectedItem.qrcodeTime || "-"
+              }}</strong>
+            </div>
+
+            <div v-if="selectedItem.aid" class="checkin-qrcode">
+              <h4>報到 QRCode</h4>
+
+              <img
+                class="checkin-image"
+                :src="checkinQrImageUrl"
+                alt="報到QRCode"
+              />
+              <div class="checkin-actions">
+                <button class="copy-btn" @click="downloadQrCode">
+                  下載 QRCode
+                </button>
+                <a
+                  class="scan-link-btn"
+                  href="/qrcode"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  開啟掃描頁
+                </a>
+              </div>
+            </div>
+          </section>
+
+          <footer class="modal-foot">
+            <button class="cancel-btn" @click="closeDetail">關閉</button>
+          </footer>
+        </div>
+      </div>
+      <FirstVisitHealthHistoryModal
+        :show="firstVisitVisible"
+        :patient="firstVisitPatient"
+        :seminar-source-label="firstVisitSeminarSourceLabel"
+        :seminar-source-date-yyyymmdd="firstVisitSeminarSourceDate"
+        @close="closeFirstVisit"
+        @save="handleFirstVisitSave"
+      />
+    </main>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import Sidebar from "@/components/raphaelBackend/Sidebar.vue";
+import FirstVisitHealthHistoryModal, {
+  type FirstVisitPatient,
+  type FirstVisitFormData,
+} from "@/components/raphaelBackend/FirstVisitHealthHistoryModal.vue";
+import VueDatePicker from "@vuepic/vue-datepicker";
+import "@vuepic/vue-datepicker/dist/main.css";
+import { useSeo } from "~/composables/useSeo";
+import {
+  buildSeminarRegisterQueryPayload,
+  fetchSeminarRegisterList,
+} from "~/utils/seminarRegisterQuery";
+
+const router = useRouter();
+const route = useRoute();
+
+const token =
+  localStorage.getItem("backendToken") ||
+  sessionStorage.getItem("backendToken");
+
+  const adminID =
+  localStorage.getItem("adminID") ||
+  sessionStorage.getItem("adminID");
+
+function resolveEventTypeParam(): string {
+  const p = route.params.eventType;
+  if (Array.isArray(p)) return p[0] || "vipl1";
+  return typeof p === "string" && p.trim() ? p : "vipl1";
+}
+
+const resolvedEventType = computed(() => resolveEventTypeParam());
+
+useSeo({
+  title: "講座報名管理",
+  description: "拉菲爾健康講座報名後台管理",
+  url: "https://neuroplus.com.tw",
+});
+
+interface Registration {
+  id: string;
+  /** HIS 病歷 PID，有值表示已註冊 HIS */
+  hisPid: string;
+  pid: string;
+  vip: string;
+  registerDate: string;
+  name: string;
+  area: string;
+  email: string;
+  mobile: string;
+  checkTimeRaw: string;
+  createdAt: string;
+  aid: string;
+  note: string;
+  qrcodeCheck: string;
+  qrcodeTime: string;
+  eventType: string;
+}
+
+interface ApiRegistration {
+  VIP?: string;
+  PID?: string;
+  RegisterDate?: string;
+  Name?: string;
+  Area?: string;
+  Email?: string;
+  Mobile?: string;
+  CheckTime?: string;
+  AID?: string;
+  Note?: string;
+  Qrcodecheck?: string;
+  Qrcodetime?: string;
+  EventType?: string;
+}
+
+const loading = ref(false);
+const registrations = ref<Registration[]>([]);
+const searchKeyword = ref("");
+const dateRange = ref<Date[] | null>(null);
+const currentPage = ref(1);
+const pageSize = ref(10);
+
+const detailVisible = ref(false);
+const selectedItem = ref<Registration | null>(null);
+const firstVisitVisible = ref(false);
+const firstVisitPatient = ref<FirstVisitPatient>({});
+const firstVisitSeminarSourceLabel = ref("");
+const firstVisitSeminarSourceDate = ref("");
+const checkinRouteBase = "https://neuroplus.com.tw/checkin";
+
+const selectedArea = computed(() => {
+  const area = route.query.area;
+  const value = Array.isArray(area) ? area[0] : area;
+  return typeof value === "string" ? value.trim() : "";
+});
+
+const selectedEventDate = computed(() => {
+  const date = route.query.eventDate;
+  const value = Array.isArray(date) ? date[0] : date;
+  return typeof value === "string" ? normalizeDateKey(value) : "";
+});
+
+const selectedEventDateLabel = computed(() => {
+  const key = selectedEventDate.value;
+  if (!key || key.length < 8) return "";
+  return `${key.slice(0, 4)}/${key.slice(4, 6)}/${key.slice(6, 8)}`;
+});
+
+const API_PAYLOAD = computed(() =>
+  buildSeminarRegisterQueryPayload({
+    AdminID: adminID,
+    Token: token,
+    EventType: resolvedEventType.value,
+    area: selectedArea.value,
+    registerDate: selectedEventDate.value,
+  }),
+);
+
+function normalizeDateKey(value = ""): string {
+  const digits = String(value).replace(/\D/g, "");
+  return digits.length >= 8 ? digits.slice(0, 8) : "";
+}
+
+function parseSessionDateFromNote(note = ""): string {
+  const m = note.match(/場次日期[：:]\s*(\d{4})\/(\d{2})\/(\d{2})/);
+  if (!m) return "";
+  return `${m[1]}${m[2]}${m[3]}`;
+}
+
+function getRegistrationSessionDateKey(item: Registration): string {
+  // 備註中的場次日期優先
+  const fromNote = parseSessionDateFromNote(item.note);
+  if (fromNote) return fromNote;
+
+  // 沒有才 fallback 到 RegisterDate
+  return normalizeDateKey(item.registerDate);
+}
+
+function goBack() {
+  router.push("/raphaelBackend/events");
+}
+
+function getInitial(name: string) {
+  return name?.trim()?.charAt(0) || "?";
+}
+
+function resetPage() {
+  currentPage.value = 1;
+}
+
+function gotoPage(page: number) {
+  currentPage.value = page;
+}
+
+function prevPage() {
+  if (currentPage.value > 1) currentPage.value--;
+}
+
+function nextPage() {
+  if (currentPage.value < totalPages.value) currentPage.value++;
+}
+
+function formatCheckTime(value = "") {
+  if (!/^\d{14}$/.test(value)) return value || "";
+
+  const y = value.slice(0, 4);
+  const m = value.slice(4, 6);
+  const d = value.slice(6, 8);
+  const hh = value.slice(8, 10);
+  const mm = value.slice(10, 12);
+  const ss = value.slice(12, 14);
+
+  return `${y}/${m}/${d} ${hh}:${mm}:${ss}`;
+}
+
+function getDateKeyFromCheckTime(value = "") {
+  if (!/^\d{8}/.test(value)) return "";
+  return value.slice(0, 8);
+}
+
+function formatDateToYYYYMMDD(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+
+async function fetchRegisterList() {
+  loading.value = true;
+
+  try {
+    const list = await fetchSeminarRegisterList(API_PAYLOAD.value);
+
+    registrations.value = list.map((item: ApiRegistration) => ({
+      id: item.AID || crypto.randomUUID(),
+      hisPid: (item.PID || "").trim(),
+      pid: (item.PID || "").trim() || item.VIP || item.AID || "",
+      registerDate: (item.RegisterDate || "").trim(),
+      vip: item.VIP || "",
+      name: item.Name?.trim() || "",
+      area: item.Area?.trim() || "",
+      email: item.Email || "",
+      mobile: item.Mobile || "",
+      checkTimeRaw: item.CheckTime || "",
+      createdAt: formatCheckTime(item.CheckTime),
+      aid: item.AID || "",
+      note: item.Note || "",
+      qrcodeCheck: item.Qrcodecheck || "",
+      qrcodeTime: item.Qrcodetime || "",
+      eventType: item.EventType || "",
+    }));
+  } catch (err) {
+    console.error("取得講座報名列表失敗:", err);
+    registrations.value = [];
+    alert("取得報名資料失敗，請稍後再試");
+  } finally {
+    loading.value = false;
+  }
+}
+
+const areaRegistrations = computed<Registration[]>(() => {
+  let result = registrations.value;
+
+  if (selectedArea.value) {
+  result = result.filter((item: Registration) => {
+    return item.area === selectedArea.value;
+  });
+}
+
+  if (selectedEventDate.value) {
+  result = result.filter((item: Registration) => {
+    const sessionKey = getRegistrationSessionDateKey(item);
+
+    // 有指定日期時，只保留同日期
+    return sessionKey === selectedEventDate.value;
+  });
+}
+
+  return result;
+});
+
+const filteredRegistrations = computed<Registration[]>(() => {
+  let result: Registration[] = areaRegistrations.value;
+
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.trim().toLowerCase();
+
+    result = result.filter((item: Registration) => {
+      const text = [
+        item.vip,
+        item.name,
+        item.email,
+        item.mobile,
+        item.createdAt,
+        item.aid,
+        item.note,
+        item.eventType,
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return text.includes(keyword);
+    });
+  }
+
+  if (dateRange.value && dateRange.value.length >= 2) {
+    const start = formatDateToYYYYMMDD(dateRange.value[0]);
+    const end = formatDateToYYYYMMDD(dateRange.value[1]);
+
+    result = result.filter((item: Registration) => {
+      const dateKey = getDateKeyFromCheckTime(item.checkTimeRaw);
+      return dateKey >= start && dateKey <= end;
+    });
+  }
+
+  return result;
+});
+
+const totalRegistrations = computed(() => filteredRegistrations.value.length);
+
+const checkedInCount = computed(() => {
+  return filteredRegistrations.value.filter(
+    (item: Registration) =>
+      item.qrcodeCheck === "true" && Boolean(item.qrcodeTime)
+  ).length;
+});
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(totalRegistrations.value / pageSize.value))
+);
+
+const paginatedRegistrations = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredRegistrations.value.slice(start, start + pageSize.value);
+});
+
+const pageNumberList = computed(() => {
+  const pages: (number | string)[] = [];
+  const maxButtons = 5;
+  const total = totalPages.value;
+
+  if (total <= maxButtons) {
+    for (let i = 1; i <= total; i++) pages.push(i);
+  } else {
+    let start = Math.max(1, currentPage.value - Math.floor(maxButtons / 2));
+    let end = start + maxButtons - 1;
+
+    if (end > total) {
+      end = total;
+      start = total - maxButtons + 1;
+    }
+
+    for (let i = start; i <= end; i++) pages.push(i);
+  }
+
+  return pages;
+});
+
+function openDetail(item: Registration) {
+  selectedItem.value = item;
+  detailVisible.value = true;
+}
+
+function closeDetail() {
+  detailVisible.value = false;
+  selectedItem.value = null;
+}
+
+function seminarSourceLabelFromEventType(eventType: string): string {
+  const t = (eventType || "").toLowerCase();
+  if (t.includes("vipl")) return "解析會";
+  return "講座活動";
+}
+
+function buildFirstVisitPatient(item: Registration): FirstVisitPatient {
+  const datePart = item.createdAt?.split(" ")[0] || "-";
+  const nameExtra = [item.vip, item.area].filter(Boolean).join(" ");
+  const chartId = item.hisPid || item.vip || item.aid || "-";
+  return {
+    pid: item.hisPid,
+    chartNo: chartId,
+    name: item.name || "-",
+    mobile: item.mobile || "",
+    nameExtra: nameExtra ? `(${nameExtra})` : "",
+    gender: "-",
+    age: "-",
+    firstVisitDate: datePart,
+  };
+}
+
+function openFirstVisit(item: Registration) {
+  firstVisitPatient.value = buildFirstVisitPatient(item);
+  firstVisitSeminarSourceLabel.value = seminarSourceLabelFromEventType(
+    item.eventType || resolvedEventType.value
+  );
+  const sessionKey = getRegistrationSessionDateKey(item);
+  firstVisitSeminarSourceDate.value =
+    sessionKey ||
+    getDateKeyFromCheckTime(item.checkTimeRaw) ||
+    formatDateToYYYYMMDD(new Date());
+  firstVisitVisible.value = true;
+}
+
+function closeFirstVisit() {
+  firstVisitVisible.value = false;
+  firstVisitPatient.value = {};
+}
+
+function handleFirstVisitSave(_data: FirstVisitFormData) {
+  closeFirstVisit();
+  fetchRegisterList();
+}
+
+const checkinUrl = computed(() => {
+  if (!selectedItem.value?.aid) return "";
+  const aid = encodeURIComponent(selectedItem.value.aid);
+  const name = encodeURIComponent(selectedItem.value.name || "");
+  return `${checkinRouteBase}?AID=${aid}&name=${name}`;
+});
+
+const checkinQrImageUrl = computed(() => {
+  if (!checkinUrl.value) return "";
+  const encoded = encodeURIComponent(checkinUrl.value);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encoded}`;
+});
+
+async function downloadQrCode() {
+  if (!checkinQrImageUrl.value) return;
+
+  try {
+    const res = await fetch(checkinQrImageUrl.value);
+    const blob = await res.blob();
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = `checkin-qrcode-${selectedItem.value?.name || "user"}.png`;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("下載 QRCode 失敗:", err);
+    alert("下載失敗");
+  }
+}
+
+function exportCSV() {
+  const rows: string[][] = [
+    ["姓名", "手機", "報名時間", "備註", "EventType"],
+    ...filteredRegistrations.value.map((item: Registration) => [
+      item.name,
+      item.mobile,
+      item.createdAt,
+      item.note,
+      item.eventType,
+    ]),
+  ];
+
+  const csv = rows
+    .map((row: string[]) =>
+      row
+        .map((cell: string) => `"${String(cell || "").replaceAll('"', '""')}"`)
+        .join(",")
+    )
+    .join("\n");
+
+  const blob = new Blob(["\uFEFF" + csv], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = `his-register-${API_PAYLOAD.value.EventType}.csv`;
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+onMounted(() => {
+  fetchRegisterList();
+});
+
+watch(
+  () => [resolvedEventType.value, selectedArea.value, selectedEventDate.value],
+  () => {
+    currentPage.value = 1;
+    fetchRegisterList();
+  },
+);
+
+watch(dateRange, () => {
+  currentPage.value = 1;
+});
+</script>
+
+<style scoped lang="scss">
+.seminarRegister {
+  display: flex;
+  min-height: 100vh;
+  background: $primary-100;
+  gap: 1%;
+
+  .content {
+    flex: 1;
+    padding: 1rem;
+    padding-left: 0;
+    width: 100%;
+    margin: 0 auto;
+
+    @include respond-to("lg") {
+      padding-left: 1rem;
+    }
+  }
+
+  .page-header {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+
+    @include respond-to("md") {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .title {
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      gap: 8px;
+      color: $primary-600;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: 0.09px;
+
+      @include respond-to("lg") {
+        padding-left: 36px;
+      }
+
+      @include respond-to("md") {
+        font-size: 24px;
+      }
+
+      .count {
+        color: $primary-200;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .area-tag,
+      .date-tag {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(27, 163, 155, 0.1);
+        color: $chip-success;
+        font-size: 14px;
+        font-weight: 700;
+      }
+    }
+
+    .export-btn {
+      border-radius: 6px;
+      background: #b1c0d8;
+      padding: 5px 12px;
+      border: none;
+      color: var(--Primary-100, #f5f7fa);
+      cursor: pointer;
+      font-size: 1.125rem;
+      font-weight: 400;
+      letter-spacing: 2.7px;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      white-space: nowrap;
+    }
+  }
+
+  .stats {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+
+    &.single {
+      grid-template-columns: minmax(220px, 320px);
+    }
+
+    &.double {
+      grid-template-columns: minmax(220px, 320px) minmax(220px, 320px);
+    }
+
+    @include respond-to("md") {
+      &.single {
+        grid-template-columns: 1fr;
+      }
+
+      &.double {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stat-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 1.25rem;
+      box-shadow: 0px 2px 20px rgba(177, 192, 216, 0.25);
+      border-left: 5px solid $chip-success;
+
+      &.checkin {
+        border-left-color: $primary-600;
+      }
+
+      span {
+        display: block;
+        color: $raphael-gray-500;
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      strong {
+        color: $primary-600;
+        font-size: 32px;
+        font-weight: 800;
+      }
+    }
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    width: 100%;
+    margin-bottom: 1.5rem;
+
+    @include respond-to("md") {
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .search-wrapper {
+      position: relative;
+      min-width: 18dvw;
+
+      @include respond-to("md") {
+        width: 100%;
+      }
+
+      img {
+        width: 19px;
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+    }
+
+    .search {
+      padding: 8px 12px;
+      padding-left: 36px;
+      border: none;
+      width: 100%;
+      border-radius: 50px;
+      background: #fff;
+      box-shadow: 0px 2px 20px rgba(177, 192, 216, 0.25);
+      transition: all ease 0.2s;
+
+      &:hover {
+        box-shadow: inset 0px 2px 6px rgba(177, 192, 216, 0.75);
+      }
+    }
+
+    .toolbarTime-wrapper {
+      position: relative;
+      min-width: 12dvw;
+
+      @include respond-to("md") {
+        width: 100%;
+      }
+
+      :deep(.dp__input) {
+        padding: 3.5px 12px;
+        padding-left: 36px;
+        border-radius: 50px;
+        background: #fff;
+        box-shadow: 0px 2px 20px rgba(177, 192, 216, 0.25);
+        border: none;
+        font-size: 14px;
+      }
+
+      img {
+        position: absolute;
+        right: 10%;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 19px;
+        pointer-events: none;
+      }
+    }
+  }
+
+  .register-table {
+    --table-cols: minmax(128px, 1.15fr) minmax(108px, 0.95fr)
+      minmax(88px, 0.75fr) minmax(152px, 1.2fr) minmax(72px, 1.35fr) minmax(140px, auto);
+
+    background: #fff;
+    border-radius: 20px;
+    padding: 0.5rem 0.25rem 1rem;
+    box-shadow: 0px 2px 20px rgba(177, 192, 216, 0.25);
+    overflow-x: auto;
+
+    .table-row {
+      display: grid;
+      grid-template-columns: var(--table-cols);
+      gap: 0.5rem 0.75rem;
+      padding: 0.75rem 1.25rem;
+      align-items: center;
+      min-width: 820px;
+
+      @include respond-to("md") {
+        grid-template-columns: 1fr;
+        min-width: 0;
+        gap: 0.35rem;
+        padding: 1rem;
+      }
+
+      > div {
+        min-width: 0;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      &.table-header {
+        font-weight: 600;
+        font-size: 13px;
+        color: $primary-600;
+        border-bottom: 1px solid #b1c0d8;
+        padding-top: 0.625rem;
+        padding-bottom: 0.75rem;
+        white-space: nowrap;
+
+        .name {
+          padding-left: 40px;
+        }
+
+        .checkin-status {
+          text-align: center;
+        }
+
+        .action {
+          text-align: right;
+        }
+
+        @include respond-to("md") {
+          display: none;
+        }
+      }
+
+      .cell {
+        color: #666;
+        word-break: break-word;
+
+        @include respond-to("md") {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.4rem 0;
+
+          &::before {
+            content: attr(data-label);
+            flex: 0 0 5.5rem;
+            font-weight: 600;
+            font-size: 13px;
+            color: $primary-600;
+          }
+        }
+      }
+
+      .name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .avatar {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: rgba(27, 163, 155, 0.12);
+          color: $chip-success;
+          display: inline-flex;
+          justify-content: center;
+          align-items: center;
+          font-weight: 800;
+          flex: 0 0 auto;
+        }
+      }
+
+      .mobile,
+      .created {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+
+        @include respond-to("md") {
+          white-space: normal;
+        }
+      }
+
+      .checkin-status {
+        display: flex;
+        justify-content: center;
+
+        @include respond-to("md") {
+          justify-content: space-between;
+        }
+
+        span {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 64px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+
+        &.checked span {
+          background: rgba(27, 163, 155, 0.12);
+          color: $chip-success;
+        }
+
+        &.unchecked span {
+          background: rgba(177, 192, 216, 0.2);
+          color: $raphael-gray-500;
+        }
+      }
+
+      .note {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        @include respond-to("md") {
+          white-space: normal;
+        }
+      }
+
+      .action {
+        justify-self: end;
+
+        @include respond-to("md") {
+          justify-self: stretch;
+        }
+      }
+
+      .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        align-items: center;
+
+        @include respond-to("md") {
+          justify-content: flex-end;
+        }
+
+        .text-btn {
+          border: none;
+          border-radius: 50px;
+          padding: 6px 14px;
+          background: rgba(27, 163, 155, 0.1);
+          color: $chip-success;
+          font-size: 13px;
+          font-weight: 700;
+          white-space: nowrap;
+          cursor: pointer;
+          text-decoration: none;
+
+          &.call {
+            background: rgba(200, 146, 60, 0.1);
+            color: #a36d18;
+          }
+
+          &.first-visit {
+            background: rgba(27, 163, 155, 0.18);
+            color: $chip-success;
+          }
+        }
+      }
+    }
+
+    .table-list {
+      .table-row {
+        border-bottom: 1px solid rgba(177, 192, 216, 0.35);
+        transition: background 0.15s ease;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        &:hover {
+          background: rgba($primary-100, 0.65);
+        }
+      }
+    }
+
+    .loading-row,
+    .no-data {
+      text-align: center;
+      padding: 3rem 0;
+      color: $raphael-gray-500;
+    }
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+
+    .btn-page {
+      padding: 6px 10px;
+      min-width: 32px;
+      border-radius: 4px;
+      background-color: transparent;
+      cursor: pointer;
+      border: none;
+      color: #2d3047;
+      transition: all 0.2s;
+
+      &.active {
+        background: $chip-success;
+        color: white;
+      }
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      &:hover:not(:disabled) {
+        background: rgba($chip-success, 0.1);
+      }
+    }
+
+    .btn-page-number {
+      background: white;
+    }
+  }
+
+  .modal-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(18, 31, 45, 0.45);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  .modal {
+    width: min(640px, 100%);
+    background: #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+
+    .modal-head {
+      padding: 1.5rem;
+      background: $primary-600;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+
+      h3 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      p {
+        margin: 4px 0 0;
+        opacity: 0.8;
+      }
+
+      .close-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(255, 255, 255, 0.16);
+        color: #fff;
+        font-size: 24px;
+        cursor: pointer;
+      }
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: 96px 1fr;
+        gap: 14px 20px;
+        padding: 1.25rem 1.5rem;
+        border-radius: 16px;
+        background: $primary-100;
+        align-items: start;
+
+        span {
+          color: $raphael-gray-500;
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.5;
+          padding-top: 2px;
+        }
+
+        strong {
+          color: #444;
+          font-size: 15px;
+          font-weight: 700;
+          line-height: 1.5;
+          word-break: break-word;
+        }
+
+        .break {
+          word-break: break-all;
+        }
+      }
+
+      .checkin-qrcode {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 16px;
+        background: #f7fafc;
+        border: 1px solid #e7edf4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+
+        h4 {
+          margin: 0;
+          color: $primary-600;
+        }
+
+        .checkin-desc {
+          margin: 0;
+          color: $raphael-gray-500;
+          text-align: center;
+        }
+
+        .checkin-link {
+          width: 100%;
+          text-align: center;
+          word-break: break-all;
+          color: $chip-success;
+          font-weight: 700;
+        }
+
+        .checkin-image {
+          width: 220px;
+          height: 220px;
+          border-radius: 12px;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+          padding: 8px;
+        }
+
+        .checkin-actions {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 0.5rem;
+        }
+
+        .copy-btn,
+        .scan-link-btn {
+          border: none;
+          border-radius: 999px;
+          padding: 8px 14px;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          text-decoration: none;
+        }
+
+        .copy-btn {
+          background: rgba(27, 163, 155, 0.12);
+          color: $chip-success;
+        }
+
+        .scan-link-btn {
+          background: rgba(177, 192, 216, 0.2);
+          color: $primary-600;
+        }
+      }
+    }
+
+    .modal-foot {
+      padding: 1rem 1.5rem 1.5rem;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+
+      button {
+        border: none;
+        border-radius: 50px;
+        padding: 10px 20px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .cancel-btn {
+        background: #f2f4f8;
+        color: #666;
+      }
+    }
+  }
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+
+  @include respond-to("md") {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+.back-btn {
+  border-radius: 6px;
+  background: #b1c0d8;
+  padding: 5px 12px;
+  border: none;
+  color: var(--Primary-100, #f5f7fa);
+  cursor: pointer;
+  font-size: 1.125rem;
+  font-weight: 400;
+  letter-spacing: 2.7px;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+
+  &:hover {
+    transform: translateY(-1px);
+    background: $primary-200;
+  }
+}
+
+.text-btn.call {
+  @media (min-width: 1024px) {
+    display: none;
+  }
+}
+</style>
