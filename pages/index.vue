@@ -25,14 +25,14 @@
           :class="{ loginRegisterItemActive: currentMode === 'login' }"
           @click="switchMode('login')"
         >
-          登入AAAAA
+          登入
         </div>
         <div
           class="loginRegisterItem"
           :class="{ loginRegisterItemActive: currentMode === 'register' }"
           @click="switchMode('register')"
         >
-          註冊DDDDDDD
+          註冊
         </div>
       </div>
 
