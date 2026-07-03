@@ -927,6 +927,7 @@
 
     <script>
       const API_BASE = "https://23700999.com:8081/PM";
+      //const API_BASE = "http://localhost:8081/PM";
       const QUERY_DAILY_REPORT_URL = API_BASE + "/api/fr/QueryDailyReport";
       const SAVE_DAILY_REPORT_URL = API_BASE + "/api/fr/SaveDailyReport";
       const DELETE_DAILY_REPORT_URL = API_BASE + "/api/fr/DeleteDailyReport";
@@ -934,6 +935,7 @@
       const GENERATE_WEEKLY_REPORT_URL =
         API_BASE + "/api/weekly-report/generate";
       const QUERY_STA_REPORT_URL = API_BASE + "/api/fr/QueryStaReport";
+      //const QUERY_STA_REPORT_URL = "http://localhost:8081/PM/api/fr/QueryStaReport";
       const PRODUCTION_DEPT_LABEL = "生產部";
 
       let auth = null;
@@ -3582,6 +3584,11 @@
                       ? "bg-green-100 text-green-700"
                       : "bg-amber-100 text-amber-700";
                   const prdCnt = getItemPrdCnt(it);
+
+                  /* if (it.AdminID == "jackyang") {
+                    return ("");
+                  } */
+
                   return (
                     "<tr>" +
                     '<td class="text-slate-400">' +
