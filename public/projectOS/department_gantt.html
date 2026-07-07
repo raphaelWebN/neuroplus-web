@@ -1,0 +1,1627 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProjectOS — 部門跨專案甘特圖</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: "#f0f7ff",
+              100: "#e0efff",
+              500: "#3b82f6",
+              600: "#2563eb",
+              700: "#1d4ed8",
+            },
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+    * {
+      font-family: "Inter", sans-serif;
+    }
+
+    body {
+      background: #f8fafc;
+      color: #1e293b;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.25s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .pulse-red {
+      animation: pulseRed 2s infinite;
+    }
+
+    @keyframes pulseRed {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.55;
+      }
+    }
+
+    .status-draft {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    .status-opening,
+    .status-proposal {
+      background: #ede9fe;
+      color: #6d28d9;
+    }
+
+    .status-ceo_feedback {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+
+    .status-in_progress {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .status-review {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .status-closed {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .status-delayed {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .status-blocked {
+      background: #ffedd5;
+      color: #c2410c;
+    }
+
+    .gantt-scroll {
+      overflow-x: auto;
+      overflow-y: visible;
+    }
+
+    .gantt-grid-bg {
+      background-image:
+        linear-gradient(to right, rgba(226, 232, 240, 0.85) 1px, transparent 1px);
+      background-size: var(--day-width) 100%;
+    }
+
+    .gantt-bar {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      border-radius: 9999px;
+      min-width: 8px;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .gantt-bar:hover {
+      transform: translateY(-50%) scaleY(1.08);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.18);
+      z-index: 20;
+    }
+
+    .today-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ef4444;
+      z-index: 15;
+      opacity: 0.8;
+    }
+
+    .today-line::before {
+      content: "今天";
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      font-size: 10px;
+      color: #ef4444;
+      background: #fff;
+      border: 1px solid #fecaca;
+      border-radius: 9999px;
+      padding: 1px 6px;
+      white-space: nowrap;
+    }
+
+    .project-row:hover {
+      background: #f8fafc;
+    }
+
+    .task-row {
+      background: #f8fafc;
+    }
+
+    .task-row:hover {
+      background: #f1f5f9;
+    }
+
+    .left-sticky {
+      position: sticky;
+      left: 0;
+      z-index: 25;
+      background: inherit;
+    }
+
+    .left-header-sticky {
+      position: sticky;
+      left: 0;
+      z-index: 35;
+      background: #ffffff;
+    }
+
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800">
+  <div id="projectos-header"></div>
+  <script src="./shared-header.js"></script>
+
+  <div class="max-w-screen-2xl mx-auto px-4 py-5">
+    <!-- PAGE HEADER -->
+    <div class="flex flex-col xl:flex-row xl:items-center gap-4 mb-5">
+      <div>
+        <div class="flex items-center gap-2">
+          <a href="dashboard.html" class="text-sm text-slate-500 hover:text-blue-600 transition">← 返回 Dashboard</a>
+          <span class="text-slate-300">/</span>
+          <span class="text-sm text-slate-400">Department Gantt</span>
+        </div>
+        <h1 class="text-2xl font-extrabold text-slate-900 mt-2">部門跨專案甘特圖</h1>
+        <p class="text-sm text-slate-500 mt-1">
+          選取部門後，以甘特圖呈現跨多個專案的時程、進度、延遲與 Blocked 狀態。
+        </p>
+      </div>
+
+      <div class="flex-1"></div>
+
+      <div class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onclick="reloadAllData()"
+          class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg font-semibold transition"
+        >
+          重新整理
+        </button>
+
+        <button
+          type="button"
+          onclick="expandAllProjects()"
+          class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm px-4 py-2 rounded-lg font-semibold transition"
+        >
+          展開全部
+        </button>
+
+        <button
+          type="button"
+          onclick="collapseAllProjects()"
+          class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-sm px-4 py-2 rounded-lg font-semibold transition"
+        >
+          收合全部
+        </button>
+      </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="bg-white rounded-xl border border-slate-200 p-4 mb-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1.5">部門</label>
+          <select
+            id="dept-filter"
+            onchange="applyGanttFilters()"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white"
+          >
+            <option value="">全部部門</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1.5">專案狀態</label>
+          <select
+            id="status-filter"
+            onchange="applyGanttFilters()"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white"
+          >
+            <option value="">全部狀態</option>
+            <option value="proposal">提案中</option>
+            <option value="ceo_feedback">待執行長回覆</option>
+            <option value="in_progress">進行中</option>
+            <option value="review">Review</option>
+            <option value="closed">已結案</option>
+            <option value="delayed">延遲</option>
+            <option value="blocked">Blocked</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1.5">時間範圍</label>
+          <select
+            id="range-filter"
+            onchange="applyRangePreset(); applyGanttFilters();"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white"
+          >
+            <option value="all">全部</option>
+            <option value="month">本月</option>
+            <option value="quarter">本季</option>
+            <option value="year">今年</option>
+            <option value="custom">自訂</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1.5">開始日</label>
+          <input
+            id="date-start-filter"
+            type="date"
+            onchange="setCustomRange(); applyGanttFilters();"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1.5">結束日</label>
+          <input
+            id="date-end-filter"
+            type="date"
+            onchange="setCustomRange(); applyGanttFilters();"
+            class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1.5">搜尋</label>
+          <div class="relative">
+            <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+            </svg>
+            <input
+              id="search-filter"
+              type="text"
+              placeholder="專案 / 任務 / 負責人"
+              oninput="applyGanttFilters()"
+              class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-700 bg-white"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div id="gantt-stats" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5"></div>
+
+    <!-- LEGEND -->
+    <div class="bg-white rounded-xl border border-slate-200 p-3 mb-5">
+      <div class="flex flex-wrap items-center gap-4 text-xs text-slate-500">
+        <span class="font-semibold text-slate-700">圖例</span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-3 h-3 rounded-full bg-blue-500"></span>進行中
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-3 h-3 rounded-full bg-green-500"></span>完成
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-3 h-3 rounded-full bg-amber-500"></span>Review / 即將到期
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-3 h-3 rounded-full bg-orange-500"></span>Blocked
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-3 h-3 rounded-full bg-red-500"></span>延遲
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-0.5 h-4 bg-red-500"></span>今天
+        </span>
+      </div>
+    </div>
+
+    <!-- GANTT -->
+    <div class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
+      <div id="loading-state" class="px-4 py-12 text-center text-sm text-slate-400">
+        載入跨專案甘特圖資料中…
+      </div>
+
+      <div id="empty-state" class="hidden px-4 py-12 text-center text-sm text-slate-400">
+        目前沒有符合條件的專案資料。
+      </div>
+
+      <div id="gantt-wrapper" class="hidden">
+        <div class="gantt-scroll">
+          <div id="gantt-header" class="min-w-full"></div>
+          <div id="gantt-body" class="min-w-full"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden">
+    <div class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 max-w-sm fade-in">
+      <svg id="toast-icon" class="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+      </svg>
+      <p id="toast-msg" class="text-sm"></p>
+    </div>
+  </div>
+
+  <script>
+    // =====================================================
+    // Backend API
+    // =====================================================
+    const API_BASE = "https://23700999.com:8081/PM";
+
+    const GET_PROJECT_LIST_URL = API_BASE + "/api/fr/getProjectList";
+    const GET_DEPARTMENT_URL = API_BASE + "/api/fr/getDepartmentCode";
+    const GET_PROJECT_STATE_CODE_URL = API_BASE + "/api/fr/getProjectStateCode";
+
+    const TASK_STATE_LIST_URLS = [
+      API_BASE + "/api/fr/getTaskStateCode",
+      API_BASE + "/api/fr/getTaskState"
+    ];
+
+    // 甘特圖設定
+    const DAY_WIDTH = 28;
+    const LEFT_COL_WIDTH = 360;
+
+    let RAW_PROJECTS = [];
+    let GANTT_PROJECTS = [];
+    let FILTERED_PROJECTS = [];
+
+    let EXPANDED_PROJECT_IDS = new Set();
+
+    let DEPARTMENT_CODE_TO_NAME = {
+      "1": "業務發展處",
+      "2": "總經理室",
+      "3": "創新研發處",
+      "4": "智慧醫療業務部",
+      "5": "客服暨會員關係部"
+    };
+
+    let TASK_STATE_CODE_TO_NAME = {};
+    let PROJECT_STATE_CODE_TO_NAME = {};
+
+    // =====================================================
+    // Common helpers
+    // =====================================================
+    function getBackendTokenAndAdmin() {
+      const token =
+        localStorage.getItem("backendToken") ||
+        sessionStorage.getItem("backendToken");
+
+      const adminID =
+        localStorage.getItem("adminID") ||
+        sessionStorage.getItem("adminID");
+
+      if (!token || !adminID) return null;
+
+      return { token, adminID };
+    }
+
+    function postJson(url, body) {
+      if (typeof window.projectOSPostJson === "function") {
+        return window.projectOSPostJson(url, body);
+      }
+
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    function escapeAttr(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;");
+    }
+
+    function todayIso() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return y + "-" + m + "-" + day;
+    }
+
+    function toIsoDate(dateStr) {
+      if (!dateStr) return "";
+
+      const s = String(dateStr).trim();
+      if (!s) return "";
+
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        return s.slice(0, 10);
+      }
+
+      const digits = s.replace(/\D/g, "");
+      if (digits.length < 8) return "";
+
+      return (
+        digits.slice(0, 4) +
+        "-" +
+        digits.slice(4, 6) +
+        "-" +
+        digits.slice(6, 8)
+      );
+    }
+
+    function toYYYYMMDD(dateStr) {
+      const iso = toIsoDate(dateStr);
+      if (!iso) return "";
+      return iso.replace(/-/g, "");
+    }
+
+    function addDays(isoDate, days) {
+      const d = new Date(isoDate);
+      d.setDate(d.getDate() + days);
+      return toIsoDate(d.toISOString());
+    }
+
+    function daysBetween(startIso, endIso) {
+      if (!startIso || !endIso) return 0;
+
+      const s = new Date(startIso + "T00:00:00");
+      const e = new Date(endIso + "T00:00:00");
+
+      if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+
+      return Math.round((e - s) / 86400000);
+    }
+
+    function isOverdue(endIso) {
+      if (!endIso) return false;
+      return endIso < todayIso();
+    }
+
+    function isDateRangeOverlap(itemStart, itemEnd, filterStart, filterEnd) {
+      if (!filterStart && !filterEnd) return true;
+
+      const s = itemStart || itemEnd;
+      const e = itemEnd || itemStart;
+
+      if (!s && !e) return false;
+
+      if (filterStart && e < filterStart) return false;
+      if (filterEnd && s > filterEnd) return false;
+
+      return true;
+    }
+
+    function formatDateShort(iso) {
+      if (!iso) return "—";
+      return iso.slice(5).replace("-", "/");
+    }
+
+    function formatDateFull(iso) {
+      if (!iso) return "—";
+      return iso.replace(/-/g, "/");
+    }
+
+    function clamp(num, min, max) {
+      return Math.max(min, Math.min(max, num));
+    }
+
+    // =====================================================
+    // Reference data
+    // =====================================================
+    async function fetchFirstTaskStateList(authBody) {
+      for (let i = 0; i < TASK_STATE_LIST_URLS.length; i++) {
+        const url = TASK_STATE_LIST_URLS[i];
+
+        try {
+          const resp = await postJson(url, authBody);
+          if (!resp) continue;
+          if (String(resp.Result || "").toUpperCase() !== "OK") continue;
+          if (!Array.isArray(resp.TaskStateList)) continue;
+          return resp;
+        } catch (e) {
+          // try next
+        }
+      }
+
+      return null;
+    }
+
+    async function initReferenceData() {
+      const auth = getBackendTokenAndAdmin();
+      if (!auth) return;
+
+      const authBody = {
+        AdminID: auth.adminID,
+        Token: auth.token
+      };
+
+      try {
+        const deptResp = await postJson(GET_DEPARTMENT_URL, authBody);
+
+        if (
+          deptResp &&
+          String(deptResp.Result || "").toUpperCase() === "OK" &&
+          Array.isArray(deptResp.DepartmentList)
+        ) {
+          const next = {};
+
+          deptResp.DepartmentList.forEach(function (d) {
+            if (!d) return;
+
+            const code = String(d.Code || "").trim();
+            const name = String(d.Name || "").replace(/\r|\n/g, "").trim();
+
+            if (!code || !name) return;
+
+            next[code] = name;
+          });
+
+          if (Object.keys(next).length) {
+            DEPARTMENT_CODE_TO_NAME = next;
+          }
+        }
+      } catch (e) {
+        // keep defaults
+      }
+
+      try {
+        const taskResp = await fetchFirstTaskStateList(authBody);
+
+        if (
+          taskResp &&
+          String(taskResp.Result || "").toUpperCase() === "OK" &&
+          Array.isArray(taskResp.TaskStateList)
+        ) {
+          const next = {};
+
+          taskResp.TaskStateList.forEach(function (st) {
+            if (!st) return;
+
+            const code = String(st.Code || "").trim();
+            const name = String(st.Name || "").trim();
+
+            if (!code || !name) return;
+
+            next[code] = name;
+          });
+
+          TASK_STATE_CODE_TO_NAME = next;
+        }
+      } catch (e) {
+        // keep empty
+      }
+
+      try {
+        const projStateResp = await postJson(GET_PROJECT_STATE_CODE_URL, authBody);
+
+        if (
+          projStateResp &&
+          String(projStateResp.Result || "").toUpperCase() === "OK" &&
+          Array.isArray(projStateResp.ProjectStateList)
+        ) {
+          const next = {};
+
+          projStateResp.ProjectStateList.forEach(function (st) {
+            if (!st) return;
+
+            const code = String(st.Code || "").trim();
+            const name = String(st.Name || "").trim();
+
+            if (!code || !name) return;
+
+            next[code] = name;
+          });
+
+          PROJECT_STATE_CODE_TO_NAME = next;
+        }
+      } catch (e) {
+        // keep empty
+      }
+
+      populateDepartmentFilterSelect();
+    }
+
+    function populateDepartmentFilterSelect() {
+      const sel = document.getElementById("dept-filter");
+      if (!sel) return;
+
+      const current = sel.value;
+
+      const codes = Object.keys(DEPARTMENT_CODE_TO_NAME).sort(function (a, b) {
+        return DEPARTMENT_CODE_TO_NAME[a].localeCompare(
+          DEPARTMENT_CODE_TO_NAME[b],
+          "zh-TW"
+        );
+      });
+
+      sel.innerHTML =
+        '<option value="">全部部門</option>' +
+        codes.map(function (code) {
+          return (
+            '<option value="' +
+            escapeAttr(code) +
+            '">' +
+            escapeHtml(DEPARTMENT_CODE_TO_NAME[code]) +
+            "</option>"
+          );
+        }).join("");
+
+      if (current && DEPARTMENT_CODE_TO_NAME[current]) {
+        sel.value = current;
+      }
+    }
+
+    // =====================================================
+    // API data extraction
+    // =====================================================
+    function extractProjectArray(resp) {
+      if (!resp || typeof resp !== "object") return [];
+      if (Array.isArray(resp)) return resp;
+      if (Array.isArray(resp.ProjectList)) return resp.ProjectList;
+      if (Array.isArray(resp.Data)) return resp.Data;
+      if (Array.isArray(resp.Projects)) return resp.Projects;
+      if (Array.isArray(resp.List)) return resp.List;
+
+      for (const k in resp) {
+        if (k === "Result" || k === "Message") continue;
+        if (Array.isArray(resp[k])) return resp[k];
+      }
+
+      return [];
+    }
+
+    async function fetchProjectList() {
+      const auth = getBackendTokenAndAdmin();
+
+      if (!auth) {
+        window.location.href = "/projectOS/index.html";
+        return;
+      }
+
+      const resp = await postJson(GET_PROJECT_LIST_URL, {
+        AdminID: auth.adminID,
+        Token: auth.token
+      });
+
+      if (resp && resp.Result != null && String(resp.Result).toUpperCase() !== "OK") {
+        throw new Error(resp.Message || "取得專案清單失敗");
+      }
+
+      return extractProjectArray(resp);
+    }
+
+    // =====================================================
+    // Status mapping
+    // =====================================================
+    function guessTaskColByStateName(name) {
+      const n = String(name || "").trim();
+
+      if (!n) return "";
+      if (/待辦|todo|draft|提案中/i.test(n)) return "todo";
+      if (/進行中|doing|in progress|執行中/i.test(n)) return "doing";
+      if (/完成|done|closed|結案|review/i.test(n)) return "done";
+      if (/延遲|blocked|block|阻擋|卡住/i.test(n)) return "blocked";
+
+      return "";
+    }
+
+    function taskStateCodeToCol(stateCode) {
+      const code = String(stateCode || "").trim();
+
+      if (!code) return "todo";
+
+      const byName = guessTaskColByStateName(TASK_STATE_CODE_TO_NAME[code]);
+      if (byName) return byName;
+
+      if (code === "1") return "todo";
+      if (code === "2") return "doing";
+      if (code === "3") return "done";
+      if (code === "4") return "blocked";
+      if (code === "5") return "done";
+      if (code === "6" || code === "7") return "blocked";
+
+      return "doing";
+    }
+
+    function projectStateNameToInternalStatus(name, code) {
+      const n = String(name || "").trim();
+      const c = String(code || "").trim();
+
+      if (n === "草稿" || c === "0") return "draft";
+      if (n === "提案中" || c === "1") return "proposal";
+      if (n === "待執行長回覆" || c === "2") return "ceo_feedback";
+      if (n === "進行中" || c === "3") return "in_progress";
+      if (n === "Review" || c === "4") return "review";
+      if (n === "完成" || c === "5") return "closed";
+      if (n === "延遲" || c === "6") return "delayed";
+      if (n === "Blocked" || c === "7") return "blocked";
+
+      return "";
+    }
+
+    function deriveProjectStatus(tasks) {
+      if (!Array.isArray(tasks) || tasks.length === 0) {
+        return "draft";
+      }
+
+      const done = tasks.filter(function (t) {
+        return taskStateCodeToCol(t.State) === "done";
+      }).length;
+
+      const blocked = tasks.some(function (t) {
+        return taskStateCodeToCol(t.State) === "blocked";
+      });
+
+      if (done === tasks.length) return "closed";
+      if (blocked) return "blocked";
+
+      const ratio = done / tasks.length;
+
+      if (ratio >= 0.8) return "review";
+
+      return "in_progress";
+    }
+
+    function getStatusLabel(status) {
+      return {
+        draft: "草稿",
+        opening: "開案中",
+        proposal: "提案中",
+        ceo_feedback: "待執行長回覆",
+        in_progress: "進行中",
+        review: "Review",
+        closed: "已結案",
+        delayed: "延遲",
+        blocked: "Blocked"
+      }[status] || status || "—";
+    }
+
+    function getStatusClass(status) {
+      return {
+        draft: "status-draft",
+        opening: "status-opening",
+        proposal: "status-proposal",
+        ceo_feedback: "status-ceo_feedback",
+        in_progress: "status-in_progress",
+        review: "status-review",
+        closed: "status-closed",
+        delayed: "status-delayed",
+        blocked: "status-blocked"
+      }[status] || "status-draft";
+    }
+
+    // =====================================================
+    // Data mapping
+    // =====================================================
+    function isTaskDoneRaw(t) {
+      return taskStateCodeToCol(t && t.State) === "done";
+    }
+
+    function isTaskBlockedRaw(t) {
+      return taskStateCodeToCol(t && t.State) === "blocked";
+    }
+
+    function calcProjectProgressFromRawTasks(tasks) {
+      if (!Array.isArray(tasks) || tasks.length === 0) return 0;
+
+      const doneCount = tasks.filter(isTaskDoneRaw).length;
+
+      return Math.round((doneCount / tasks.length) * 100);
+    }
+
+    function inferMinTaskDate(tasks) {
+      const dates = [];
+
+      tasks.forEach(function (t) {
+        if (t.startDate) dates.push(t.startDate);
+        if (t.endDate) dates.push(t.endDate);
+      });
+
+      if (!dates.length) return "";
+
+      dates.sort();
+      return dates[0];
+    }
+
+    function inferMaxTaskDate(tasks) {
+      const dates = [];
+
+      tasks.forEach(function (t) {
+        if (t.startDate) dates.push(t.startDate);
+        if (t.endDate) dates.push(t.endDate);
+      });
+
+      if (!dates.length) return "";
+
+      dates.sort();
+      return dates[dates.length - 1];
+    }
+
+    function mapApiProjectToGanttProject(raw, index) {
+      const rawTasks = Array.isArray(raw.TaskList) ? raw.TaskList : [];
+      const deptCode = raw.Department != null ? String(raw.Department).trim() : "";
+      const deptName = DEPARTMENT_CODE_TO_NAME[deptCode] || (deptCode ? "部門 " + deptCode : "—");
+
+      const mappedTasks = rawTasks.map(function (t, taskIndex) {
+        const state = taskStateCodeToCol(t && t.State);
+        const startDate = toIsoDate(t && (t.StartDate || t.StertDate || t.startDate));
+        const endDate = toIsoDate(t && (t.EndDate || t.StertDate || t.endDate));
+        const done = state === "done";
+        const blocked = state === "blocked";
+        const delayed = !done && endDate && isOverdue(endDate);
+
+        return {
+          id: String((t && (t.CID || t.cid || t.TaskCID)) || "task-" + index + "-" + taskIndex),
+          cid: String((t && (t.CID || t.cid || t.TaskCID)) || "").trim(),
+          title: String((t && (t.Topic || t.Title || t.topic)) || "未命名任務").trim(),
+          description: String((t && (t.Description || t.Desc || t.description)) || "").trim(),
+          owner: String((t && (t.ChargeMan || t.ChargePerson || t.Owner || t.assignee)) || "—").trim(),
+          startDate: startDate || endDate,
+          endDate: endDate || startDate,
+          state: state,
+          stateCode: String((t && t.State) || "").trim(),
+          progress: done ? 100 : 0,
+          delayed: delayed,
+          blocked: blocked,
+          raw: t
+        };
+      });
+
+      const projectStart = toIsoDate(raw.StartDate || raw.startDate) || inferMinTaskDate(mappedTasks);
+      const projectEnd = toIsoDate(raw.EndDate || raw.endDate) || inferMaxTaskDate(mappedTasks);
+
+      const progress = calcProjectProgressFromRawTasks(rawTasks);
+      const blockedCount = mappedTasks.filter(function (t) { return t.blocked; }).length;
+      const delayedTaskCount = mappedTasks.filter(function (t) { return t.delayed; }).length;
+
+      const projectDelayed = progress < 100 && projectEnd && isOverdue(projectEnd);
+      const projectStateCode = raw.State != null ? String(raw.State).trim() : "";
+      const projectStateName = PROJECT_STATE_CODE_TO_NAME[projectStateCode] || "";
+
+      let status =
+        projectStateNameToInternalStatus(projectStateName, projectStateCode) ||
+        deriveProjectStatus(rawTasks);
+
+      if (projectDelayed && status !== "closed") {
+        status = "delayed";
+      }
+
+      if (blockedCount > 0 && status !== "closed") {
+        status = "blocked";
+      }
+
+      const projectAID = String(raw.AID || raw.ProjectAID || index + 1).trim();
+      const projectName = String(raw.ProjectName || raw.name || "未命名專案").trim();
+
+      return {
+        projectAID: projectAID,
+        projectName: projectName,
+        departmentCode: deptCode,
+        departmentName: deptName,
+        owner: String(raw.ChargeMan || raw.ChargePerson || raw.Owner || "—").trim(),
+        participants: String(raw.Participants || "").trim(),
+        startDate: projectStart,
+        endDate: projectEnd,
+        status: status,
+        stateCode: projectStateCode,
+        progress: progress,
+        blockedCount: blockedCount,
+        delayedTaskCount: delayedTaskCount,
+        delayed: projectDelayed || delayedTaskCount > 0,
+        taskCount: mappedTasks.length,
+        doneTaskCount: mappedTasks.filter(function (t) { return t.state === "done"; }).length,
+        tasks: mappedTasks,
+        raw: raw
+      };
+    }
+
+    function mapAllProjects() {
+      GANTT_PROJECTS = RAW_PROJECTS.map(mapApiProjectToGanttProject);
+
+      GANTT_PROJECTS.forEach(function (p) {
+        if (p.projectAID) {
+          EXPANDED_PROJECT_IDS.add(p.projectAID);
+        }
+      });
+    }
+
+    // =====================================================
+    // Filters
+    // =====================================================
+    function applyRangePreset() {
+      const range = document.getElementById("range-filter").value;
+      const startEl = document.getElementById("date-start-filter");
+      const endEl = document.getElementById("date-end-filter");
+
+      if (range === "custom") return;
+
+      if (range === "all") {
+        startEl.value = "";
+        endEl.value = "";
+        return;
+      }
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+
+      let start;
+      let end;
+
+      if (range === "month") {
+        start = new Date(year, month, 1);
+        end = new Date(year, month + 1, 0);
+      } else if (range === "quarter") {
+        const qStartMonth = Math.floor(month / 3) * 3;
+        start = new Date(year, qStartMonth, 1);
+        end = new Date(year, qStartMonth + 3, 0);
+      } else if (range === "year") {
+        start = new Date(year, 0, 1);
+        end = new Date(year, 11, 31);
+      }
+
+      if (start && end) {
+        startEl.value = toIsoDate(start.toISOString());
+        endEl.value = toIsoDate(end.toISOString());
+      }
+    }
+
+    function setCustomRange() {
+      document.getElementById("range-filter").value = "custom";
+    }
+
+    function applyGanttFilters() {
+      const dept = document.getElementById("dept-filter").value;
+      const status = document.getElementById("status-filter").value;
+      const q = document.getElementById("search-filter").value.trim().toLowerCase();
+      const filterStart = document.getElementById("date-start-filter").value;
+      const filterEnd = document.getElementById("date-end-filter").value;
+
+      FILTERED_PROJECTS = GANTT_PROJECTS.filter(function (p) {
+        if (dept && String(p.departmentCode || "") !== dept) return false;
+
+        if (status) {
+          if (status === "delayed") {
+            if (!p.delayed) return false;
+          } else if (status === "blocked") {
+            if (p.blockedCount <= 0 && p.status !== "blocked") return false;
+          } else if (p.status !== status) {
+            return false;
+          }
+        }
+
+        if (
+          !isDateRangeOverlap(p.startDate, p.endDate, filterStart, filterEnd)
+        ) {
+          const taskHasOverlap = p.tasks.some(function (t) {
+            return isDateRangeOverlap(t.startDate, t.endDate, filterStart, filterEnd);
+          });
+
+          if (!taskHasOverlap) return false;
+        }
+
+        if (q) {
+          const projectMatch =
+            p.projectName.toLowerCase().includes(q) ||
+            p.owner.toLowerCase().includes(q) ||
+            p.departmentName.toLowerCase().includes(q) ||
+            p.participants.toLowerCase().includes(q);
+
+          const taskMatch = p.tasks.some(function (t) {
+            return (
+              t.title.toLowerCase().includes(q) ||
+              t.owner.toLowerCase().includes(q) ||
+              t.description.toLowerCase().includes(q)
+            );
+          });
+
+          if (!projectMatch && !taskMatch) return false;
+        }
+
+        return true;
+      });
+
+      renderStats(FILTERED_PROJECTS);
+      renderGantt(FILTERED_PROJECTS);
+    }
+
+    // =====================================================
+    // Stats
+    // =====================================================
+    function renderStats(projects) {
+      const total = projects.length;
+      const inProgress = projects.filter(function (p) {
+        return p.status === "in_progress";
+      }).length;
+
+      const delayed = projects.filter(function (p) {
+        return p.delayed || p.status === "delayed";
+      }).length;
+
+      const blockedTasks = projects.reduce(function (sum, p) {
+        return sum + (p.blockedCount || 0);
+      }, 0);
+
+      const totalTasks = projects.reduce(function (sum, p) {
+        return sum + (p.taskCount || 0);
+      }, 0);
+
+      const doneTasks = projects.reduce(function (sum, p) {
+        return sum + (p.doneTaskCount || 0);
+      }, 0);
+
+      const avgProgress = total
+        ? Math.round(projects.reduce(function (sum, p) {
+            return sum + (p.progress || 0);
+          }, 0) / total)
+        : 0;
+
+      const today = todayIso();
+      const next7 = addDays(today, 7);
+
+      let dueThisWeek = 0;
+
+      projects.forEach(function (p) {
+        p.tasks.forEach(function (t) {
+          if (
+            t.state !== "done" &&
+            t.endDate &&
+            t.endDate >= today &&
+            t.endDate <= next7
+          ) {
+            dueThisWeek++;
+          }
+        });
+      });
+
+      const statsEl = document.getElementById("gantt-stats");
+
+      statsEl.innerHTML = `
+        <div class="bg-white rounded-xl border border-slate-200 p-4 text-center">
+          <p class="text-xs text-slate-400 font-medium mb-1">專案總數</p>
+          <p class="text-2xl font-extrabold text-slate-900">${total}</p>
+          <p class="text-xs text-slate-400 mt-0.5">篩選後</p>
+        </div>
+
+        <div class="bg-blue-50 rounded-xl border border-blue-200 p-4 text-center">
+          <p class="text-xs text-blue-500 font-medium mb-1">進行中</p>
+          <p class="text-2xl font-extrabold text-blue-700">${inProgress}</p>
+          <p class="text-xs text-blue-400 mt-0.5">${total ? Math.round(inProgress / total * 100) : 0}%</p>
+        </div>
+
+        <div class="bg-red-50 rounded-xl border border-red-200 p-4 text-center ${delayed > 0 ? "pulse-red" : ""}">
+          <p class="text-xs text-red-500 font-medium mb-1">延遲專案</p>
+          <p class="text-2xl font-extrabold text-red-600">${delayed}</p>
+          <p class="text-xs text-red-400 mt-0.5">需管理者關注</p>
+        </div>
+
+        <div class="bg-orange-50 rounded-xl border border-orange-200 p-4 text-center ${blockedTasks > 0 ? "pulse-red" : ""}">
+          <p class="text-xs text-orange-500 font-medium mb-1">Blocked 任務</p>
+          <p class="text-2xl font-extrabold text-orange-600">${blockedTasks}</p>
+          <p class="text-xs text-orange-400 mt-0.5">等待解除</p>
+        </div>
+
+        <div class="bg-green-50 rounded-xl border border-green-200 p-4 text-center">
+          <p class="text-xs text-green-500 font-medium mb-1">平均完成率</p>
+          <p class="text-2xl font-extrabold text-green-700">${avgProgress}%</p>
+          <p class="text-xs text-green-400 mt-0.5">${doneTasks} / ${totalTasks} 任務</p>
+        </div>
+
+        <div class="bg-amber-50 rounded-xl border border-amber-200 p-4 text-center">
+          <p class="text-xs text-amber-500 font-medium mb-1">7 天內到期</p>
+          <p class="text-2xl font-extrabold text-amber-700">${dueThisWeek}</p>
+          <p class="text-xs text-amber-400 mt-0.5">未完成任務</p>
+        </div>
+      `;
+    }
+
+    // =====================================================
+    // Gantt rendering
+    // =====================================================
+    function getChartDateRange(projects) {
+      const filterStart = document.getElementById("date-start-filter").value;
+      const filterEnd = document.getElementById("date-end-filter").value;
+
+      if (filterStart && filterEnd) {
+        return {
+          start: filterStart,
+          end: filterEnd
+        };
+      }
+
+      const dates = [];
+
+      projects.forEach(function (p) {
+        if (p.startDate) dates.push(p.startDate);
+        if (p.endDate) dates.push(p.endDate);
+
+        p.tasks.forEach(function (t) {
+          if (t.startDate) dates.push(t.startDate);
+          if (t.endDate) dates.push(t.endDate);
+        });
+      });
+
+      if (!dates.length) {
+        const today = todayIso();
+        return {
+          start: addDays(today, -7),
+          end: addDays(today, 30)
+        };
+      }
+
+      dates.sort();
+
+      return {
+        start: addDays(dates[0], -3),
+        end: addDays(dates[dates.length - 1], 7)
+      };
+    }
+
+    function getBarStyle(startIso, endIso, chartStart) {
+      const s = startIso || endIso || chartStart;
+      const e = endIso || startIso || s;
+
+      const offset = Math.max(0, daysBetween(chartStart, s));
+      const duration = Math.max(1, daysBetween(s, e) + 1);
+
+      return {
+        left: offset * DAY_WIDTH,
+        width: duration * DAY_WIDTH
+      };
+    }
+
+    function getBarClassForProject(p) {
+      if (p.status === "closed" || p.progress >= 100) return "bg-green-500";
+      if (p.delayed || p.status === "delayed") return "bg-red-500";
+      if (p.blockedCount > 0 || p.status === "blocked") return "bg-orange-500";
+      if (p.status === "review") return "bg-amber-500";
+      if (p.status === "proposal" || p.status === "ceo_feedback") return "bg-violet-500";
+      return "bg-blue-500";
+    }
+
+    function getBarClassForTask(t) {
+      if (t.state === "done") return "bg-green-400";
+      if (t.delayed) return "bg-red-400";
+      if (t.blocked) return "bg-orange-400";
+      if (t.state === "todo") return "bg-slate-400";
+      return "bg-sky-400";
+    }
+
+    function renderGanttHeader(chartStart, totalDays, totalWidth) {
+      const monthCells = [];
+      const dayCells = [];
+
+      let currentMonth = "";
+      let monthStartIndex = 0;
+
+      for (let i = 0; i < totalDays; i++) {
+        const date = addDays(chartStart, i);
+        const month = date.slice(0, 7);
+
+        if (i === 0) {
+          currentMonth = month;
+          monthStartIndex = 0;
+        }
+
+        if (month !== currentMonth) {
+          const monthWidth = (i - monthStartIndex) * DAY_WIDTH;
+
+          monthCells.push(`
+            <div
+              class="absolute top-0 h-7 border-r border-slate-200 px-2 flex items-center text-xs font-bold text-slate-500"
+              style="left:${monthStartIndex * DAY_WIDTH}px;width:${monthWidth}px;"
+            >
+              ${currentMonth}
+            </div>
+          `);
+
+          currentMonth = month;
+          monthStartIndex = i;
+        }
+
+        const dayNumber = date.slice(8, 10);
+        const dayOfWeek = new Date(date + "T00:00:00").getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        const isToday = date === todayIso();
+
+        dayCells.push(`
+          <div
+            class="absolute top-7 h-8 border-r border-slate-100 flex items-center justify-center text-[11px] ${isWeekend ? "bg-slate-50 text-slate-300" : "text-slate-400"} ${isToday ? "font-extrabold text-red-500" : ""}"
+            style="left:${i * DAY_WIDTH}px;width:${DAY_WIDTH}px;"
+            title="${date}"
+          >
+            ${dayNumber}
+          </div>
+        `);
+      }
+
+      const lastMonthWidth = (totalDays - monthStartIndex) * DAY_WIDTH;
+
+      monthCells.push(`
+        <div
+          class="absolute top-0 h-7 border-r border-slate-200 px-2 flex items-center text-xs font-bold text-slate-500"
+          style="left:${monthStartIndex * DAY_WIDTH}px;width:${lastMonthWidth}px;"
+        >
+          ${currentMonth}
+        </div>
+      `);
+
+      return `
+        <div class="grid border-b border-slate-200 bg-white" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;">
+          <div class="left-header-sticky border-r border-slate-200 px-4 py-3 h-[60px] flex items-center">
+            <div>
+              <p class="text-xs font-bold text-slate-700">專案 / 任務</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">負責人 · 完成率 · 狀態</p>
+            </div>
+          </div>
+
+          <div class="relative h-[60px]" style="width:${totalWidth}px;">
+            ${monthCells.join("")}
+            ${dayCells.join("")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTodayLine(chartStart, totalDays) {
+      const today = todayIso();
+      const offset = daysBetween(chartStart, today);
+
+      if (offset < 0 || offset > totalDays) return "";
+
+      return `<div class="today-line" style="left:${offset * DAY_WIDTH}px;"></div>`;
+    }
+
+    function renderProjectRow(p, chartStart, totalDays, totalWidth) {
+      const expanded = EXPANDED_PROJECT_IDS.has(p.projectAID);
+      const bar = getBarStyle(p.startDate, p.endDate, chartStart);
+      const barClass = getBarClassForProject(p);
+
+      const url =
+        "task-tracking.html?projectAID=" +
+        encodeURIComponent(p.projectAID) +
+        "&project=" +
+        encodeURIComponent(p.projectName);
+
+      const taskRows = expanded
+        ? p.tasks.map(function (t) {
+            return renderTaskRow(p, t, chartStart, totalDays, totalWidth);
+          }).join("")
+        : "";
+
+      const statusClass = getStatusClass(p.status);
+      const statusLabel = getStatusLabel(p.status);
+
+      return `
+        <div class="project-group border-b border-slate-100" data-project-aid="${escapeAttr(p.projectAID)}">
+          <div class="project-row grid bg-white" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;">
+            <div class="left-sticky border-r border-slate-100 px-4 py-3 min-h-[58px]">
+              <div class="flex items-start gap-2">
+                <button
+                  type="button"
+                  onclick="toggleProjectTasks('${escapeAttr(p.projectAID)}')"
+                  class="w-6 h-6 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center shrink-0"
+                  title="${expanded ? "收合任務" : "展開任務"}"
+                >
+                  ${expanded ? "▾" : "▸"}
+                </button>
+
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <a
+                      href="${url}"
+                      class="text-sm font-bold text-slate-800 hover:text-blue-600 truncate"
+                      title="${escapeAttr(p.projectName)}"
+                    >
+                      ${escapeHtml(p.projectName)}
+                    </a>
+
+                    ${p.delayed ? `<span class="text-[11px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold shrink-0">延遲</span>` : ""}
+                    ${p.blockedCount > 0 ? `<span class="text-[11px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold shrink-0">Blocked ×${p.blockedCount}</span>` : ""}
+                  </div>
+
+                  <div class="flex flex-wrap items-center gap-2 mt-1">
+                    <span class="text-xs text-slate-400">${escapeHtml(p.owner || "—")}</span>
+                    <span class="text-xs text-slate-300">·</span>
+                    <span class="text-xs text-slate-400">${escapeHtml(p.departmentName || "—")}</span>
+                    <span class="${statusClass} text-[11px] px-2 py-0.5 rounded-full font-semibold">${statusLabel}</span>
+                  </div>
+
+                  <div class="flex items-center gap-2 mt-2">
+                    <div class="w-24 bg-slate-100 rounded-full h-1.5">
+                      <div class="bg-blue-500 h-1.5 rounded-full" style="width:${clamp(p.progress, 0, 100)}%"></div>
+                    </div>
+                    <span class="text-[11px] text-slate-500 font-semibold">${p.progress}%</span>
+                    <span class="text-[11px] text-slate-400">${p.doneTaskCount}/${p.taskCount} 任務</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="relative gantt-grid-bg"
+              style="height:58px;width:${totalWidth}px;--day-width:${DAY_WIDTH}px;"
+            >
+              ${renderTodayLine(chartStart, totalDays)}
+              <div
+                class="gantt-bar ${barClass} h-6"
+                style="left:${bar.left}px;width:${bar.width}px;"
+                title="${escapeAttr(p.projectName)}｜${formatDateFull(p.startDate)} - ${formatDateFull(p.endDate)}｜完成率 ${p.progress}%"
+              >
+                <div class="h-6 rounded-full bg-white/35" style="width:${clamp(p.progress, 0, 100)}%"></div>
+                <span class="absolute inset-0 flex items-center justify-center text-[11px] text-white font-bold whitespace-nowrap overflow-hidden px-2">
+                  ${p.progress}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          ${taskRows}
+        </div>
+      `;
+    }
+
+    function renderTaskRow(project, task, chartStart, totalDays, totalWidth) {
+      const bar = getBarStyle(task.startDate, task.endDate, chartStart);
+      const barClass = getBarClassForTask(task);
+
+      const statusLabel = {
+        todo: "待辦",
+        doing: "進行中",
+        done: "完成",
+        blocked: "Blocked"
+      }[task.state] || task.state;
+
+      return `
+        <div class="task-row grid" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;">
+          <div class="left-sticky border-r border-slate-100 pl-12 pr-4 py-2 min-h-[40px]">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="w-1.5 h-1.5 rounded-full ${barClass} shrink-0"></span>
+              <span class="text-xs font-medium text-slate-700 truncate" title="${escapeAttr(task.title)}">
+                ${escapeHtml(task.title)}
+              </span>
+              ${task.delayed ? `<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold shrink-0">延遲</span>` : ""}
+            </div>
+            <div class="text-[11px] text-slate-400 mt-0.5">
+              ${escapeHtml(task.owner || "—")} · ${statusLabel} · ${formatDateFull(task.startDate)} - ${formatDateFull(task.endDate)}
+            </div>
+          </div>
+
+          <div
+            class="relative gantt-grid-bg"
+            style="height:40px;width:${totalWidth}px;--day-width:${DAY_WIDTH}px;"
+          >
+            ${renderTodayLine(chartStart, totalDays)}
+            <div
+              class="gantt-bar ${barClass} h-4"
+              style="left:${bar.left}px;width:${bar.width}px;"
+              title="${escapeAttr(task.title)}｜${formatDateFull(task.startDate)} - ${formatDateFull(task.endDate)}｜${statusLabel}"
+            ></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderGantt(projects) {
+      const loadingState = document.getElementById("loading-state");
+      const emptyState = document.getElementById("empty-state");
+      const wrapper = document.getElementById("gantt-wrapper");
+      const header = document.getElementById("gantt-header");
+      const body = document.getElementById("gantt-body");
+
+      loadingState.classList.add("hidden");
+
+      if (!projects.length) {
+        wrapper.classList.add("hidden");
+        emptyState.classList.remove("hidden");
+        return;
+      }
+
+      emptyState.classList.add("hidden");
+      wrapper.classList.remove("hidden");
+
+      const range = getChartDateRange(projects);
+      const totalDays = Math.max(1, daysBetween(range.start, range.end) + 1);
+      const totalWidth = totalDays * DAY_WIDTH;
+
+      header.innerHTML = renderGanttHeader(range.start, totalDays, totalWidth);
+
+      body.innerHTML = projects.map(function (p) {
+        return renderProjectRow(p, range.start, totalDays, totalWidth);
+      }).join("");
+    }
+
+    // =====================================================
+    // Expand / collapse
+    // =====================================================
+    function toggleProjectTasks(projectAID) {
+      const id = String(projectAID || "").trim();
+
+      if (!id) return;
+
+      if (EXPANDED_PROJECT_IDS.has(id)) {
+        EXPANDED_PROJECT_IDS.delete(id);
+      } else {
+        EXPANDED_PROJECT_IDS.add(id);
+      }
+
+      renderGantt(FILTERED_PROJECTS);
+    }
+
+    function expandAllProjects() {
+      FILTERED_PROJECTS.forEach(function (p) {
+        if (p.projectAID) EXPANDED_PROJECT_IDS.add(p.projectAID);
+      });
+
+      renderGantt(FILTERED_PROJECTS);
+    }
+
+    function collapseAllProjects() {
+      EXPANDED_PROJECT_IDS.clear();
+      renderGantt(FILTERED_PROJECTS);
+    }
+
+    // =====================================================
+    // Toast
+    // =====================================================
+    let toastTimer;
+
+    function showToast(msg, type) {
+      const toast = document.getElementById("toast");
+      const msgEl = document.getElementById("toast-msg");
+      const icon = document.getElementById("toast-icon");
+
+      msgEl.textContent = msg;
+
+      icon.className =
+        type === "warn"
+          ? "w-4 h-4 text-amber-400 flex-shrink-0"
+          : type === "error"
+            ? "w-4 h-4 text-red-400 flex-shrink-0"
+            : "w-4 h-4 text-green-400 flex-shrink-0";
+
+      toast.classList.remove("hidden");
+
+      clearTimeout(toastTimer);
+
+      toastTimer = setTimeout(function () {
+        toast.classList.add("hidden");
+      }, 3000);
+    }
+
+    // =====================================================
+    // Init nav avatar
+    // =====================================================
+    function initNavAvatar() {
+      try {
+        const el = document.getElementById("navUserAvatar");
+        if (!el) return;
+
+        const raw = localStorage.getItem("userData");
+
+        if (raw) {
+          const u = JSON.parse(raw);
+          const name = (u.Member && u.Member.Name) || u.Name || "會員";
+          el.textContent = String(name).trim().charAt(0).toUpperCase() || "?";
+          return;
+        }
+
+        const adminName =
+          localStorage.getItem("adminName") ||
+          sessionStorage.getItem("adminName");
+
+        const adminId =
+          localStorage.getItem("adminID") ||
+          sessionStorage.getItem("adminID");
+
+        const label = (adminName || adminId || "").trim();
+
+        if (label) {
+          el.textContent = label.charAt(0).toUpperCase() || "?";
+        }
+      } catch (e) {}
+    }
+
+    // =====================================================
+    // Reload
+    // =====================================================
+    async function reloadAllData() {
+      const loadingState = document.getElementById("loading-state");
+      const emptyState = document.getElementById("empty-state");
+      const wrapper = document.getElementById("gantt-wrapper");
+
+      loadingState.classList.remove("hidden");
+      emptyState.classList.add("hidden");
+      wrapper.classList.add("hidden");
+
+      try {
+        await initReferenceData();
+
+        RAW_PROJECTS = await fetchProjectList();
+        mapAllProjects();
+
+        FILTERED_PROJECTS = GANTT_PROJECTS.slice();
+
+        applyGanttFilters();
+
+        showToast("甘特圖資料已更新");
+      } catch (e) {
+        loadingState.classList.add("hidden");
+        wrapper.classList.add("hidden");
+        emptyState.classList.remove("hidden");
+
+        showToast(
+          "無法取得甘特圖資料：" + (e && e.message ? e.message : "未知錯誤"),
+          "error"
+        );
+      }
+    }
+
+    // =====================================================
+    // Start
+    // =====================================================
+    document.addEventListener("DOMContentLoaded", async function () {
+      initNavAvatar();
+
+      await reloadAllData();
+    });
+  </script>
+</body>
+</html>

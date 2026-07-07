@@ -16,11 +16,19 @@
     "    </a>" +
     '    <span class="text-xs text-slate-300 hidden sm:inline">AI Decision OS</span>' +
     "    <div class=\"flex-1\"></div>" +
+
+    '    <a href="department_gantt.html" class="' +
+    (isDashboard
+      ? "text-sm text-blue-600 font-medium px-2 py-1 rounded-md hover:bg-blue-50 transition"
+      : "text-sm text-slate-600 px-2 py-1 rounded-md hover:bg-slate-100 transition") +
+    '">部門跨專案甘特圖</a>' +
+
     '    <a href="dashboard.html" class="' +
     (isDashboard
       ? "text-sm text-blue-600 font-medium px-2 py-1 rounded-md hover:bg-blue-50 transition"
       : "text-sm text-slate-600 px-2 py-1 rounded-md hover:bg-slate-100 transition") +
     '">專案面板</a>' +
+
     '    <a href="create-project.html" class="' +
     (isCreate
       ? "text-sm text-blue-600 font-medium px-2 py-1 rounded-md hover:bg-blue-50 transition"
