@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<title>畫面 8 — 睡眠健康報告</title>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Roboto:wght@100;300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:rgba(31,188,179,0.1);display:flex;align-items:flex-start;justify-content:center;min-height:100vh;font-family:'Noto Sans TC',sans-serif}
+.wrap{width:375px;min-height:100vh;background:rgba(31,188,179,0.1);position:relative;padding:16px 16px 100px}
+.lt{color:#1fbcb3;font-size:13px;font-weight:600;margin-bottom:8px}
+.h1d{color:#1e1e1e;font-size:26px;font-weight:600;line-height:1.22}
+.h1dg{color:#13241f;font-size:26px;font-weight:600;line-height:1.22}
+.h2t{color:#1fbcb3;font-size:16px;font-weight:600}
+.sh{margin-bottom:16px}
+.cd{background:white;border-radius:12px;padding:24px;width:100%;margin-bottom:16px}
+.cds{background:white;border-radius:12px;padding:12px 16px;width:100%;display:flex;align-items:center;margin-bottom:8px}
+.ip{background:white;border:1px solid #ccc;border-radius:999px;height:48px;width:100%;display:flex;align-items:center;padding:0 16px;font-size:16px;color:rgba(102,102,102,.7)}
+.ips{background:white;border:1px solid #ccc;border-radius:999px;height:28px;display:inline-flex;align-items:center;padding:0 12px;font-size:14px;color:rgba(102,102,102,.7);white-space:nowrap}
+.orsep{display:flex;align-items:center;gap:12px;justify-content:center;padding:4px 0}
+.orl{background:#d9d9d9;height:1px;width:32px}
+.bg{background:#74bc1f;color:white;border:none;border-radius:999px;width:100%;padding:10px 13px;font-size:17px;font-family:'Noto Sans TC',sans-serif;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
+.bol{background:transparent;color:#74bc1f;border:1.5px solid #74bc1f;border-radius:999px;flex:1;padding:9px 13px;font-size:17px;font-family:'Noto Sans TC',sans-serif;cursor:pointer;text-align:center}
+.bol.sel{background:#74bc1f;color:white}
+.boff{background:#eee;color:#22302f;border:1.5px solid #eee;border-radius:999px;width:100%;padding:10px 13px;font-size:17px;font-family:'Noto Sans TC',sans-serif;cursor:default;text-align:center;opacity:.4}
+.br{display:flex;gap:8px;width:100%}
+.sp{padding:16px 0 17px}
+.sp+.sp{border-top:1px solid #eee}
+.dayg{font-family:'Roboto',sans-serif;font-weight:500;font-size:32px;color:#74bc1f;flex:1}
+.dayl{font-family:'Roboto',sans-serif;font-weight:300;font-size:32px;color:#74bc1f;flex:1}
+.dayx{font-family:'Roboto',sans-serif;font-weight:300;font-size:32px;color:rgba(102,102,102,.7);flex:1}
+.by{background:#74bc1f;color:white;font-size:14px;height:28px;padding:0 12px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.bn{background:white;color:rgba(102,102,102,.7);font-size:14px;height:28px;padding:0 12px;border-radius:999px;border:1px solid #ccc;display:inline-flex;align-items:center;white-space:nowrap}
+.ta{background:white;border:1px solid #d9e5df;border-radius:8px;height:72px;width:100%;padding:13px;font-size:16px;color:#b3b3b3;font-family:'Noto Sans TC',sans-serif;resize:none}
+.ta.f{color:#1e1e1e}
+.bot{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:375px;padding:0 16px 16px;padding-top:32px;background:linear-gradient(to bottom,rgba(233,248,247,0) 0%,#e9f8f7 42%);display:flex;flex-direction:column;gap:8px}
+.rg{background:linear-gradient(-62.5deg,#fff 0%,#afdcd9 96%);border:1px solid white;border-radius:8px;padding:17px;box-shadow:0 8px 14px #b1e0dd;margin-bottom:8px}
+.sts{display:flex;gap:8px;height:68px}
+.stb{flex:1;background:white;border:1px solid #d9e5df;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.mc{background:white;border:1px solid #d9e5df;border-radius:8px;padding:14px;margin-bottom:8px}
+.mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.mbg{background:#e0f3ee;color:#064b46;font-size:12px;font-weight:600;padding:4px 8px;border-radius:999px}
+.pr{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.pd{font-size:12px;color:#667873;width:36px;flex-shrink:0}
+.pb{flex:1;height:7px;background:#eee;border-radius:999px;overflow:hidden}
+.pf{height:100%;background:#1fbcb3;border-radius:999px}
+.hi{color:#1fbcb3}
+.sgc{background:#301675;border-radius:8px;padding:13px;color:white;margin-bottom:8px}
+.rc{background:#f4fbf8;border:1px solid #301675;border-radius:8px;padding:17px;margin-bottom:8px}
+.rtg{background:#301675;color:white;font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px;display:inline-block;margin-bottom:8px}
+.rbl{width:16px;height:16px;background:#301675;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.oc2{display:flex;gap:12px;margin-bottom:16px}
+.occ{flex:1;background:white;border:1px solid #ccc;border-radius:8px;padding:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="sh"><div class="lt">Day 7 睡眠健康報告</div><div class="h1d">七天後，回頭看見自己的變化。</div></div>
+<div class="rg">
+  <div style="font-size:12px;color:#666;margin-bottom:6px">你的睡眠類型</div>
+  <div style="font-size:24px;font-weight:600;color:#1e1e1e;margin-bottom:12px">淺眠多夢／壓力疲勞型</div>
+  <p style="font-size:15px;color:#666;line-height:1.58;margin-bottom:12px">這七天的回報顯示，你的睡眠品質與放鬆感有提升，肩頸緊繃與壓力感較 Day 1 下降。</p>
+  <div class="sts"><div class="stb"><div style="font-size:22px;font-weight:600">6/7</div><div style="font-size:12px;color:#666;font-weight:600">使用天數</div></div><div class="stb"><div style="font-size:22px;font-weight:600">-2</div><div style="font-size:12px;color:#666;font-weight:600">壓力感</div></div><div class="stb"><div style="font-size:22px;font-weight:600">+2</div><div style="font-size:12px;color:#666;font-weight:600">睡眠品質</div></div></div>
+</div>
+<div class="mc"><div class="mh"><div style="font-size:14px;font-weight:600">睡眠品質</div><div class="mbg">提升 2 分</div></div><div class="pr"><div class="pd">Day 1</div><div class="pb"><div class="pf" style="width:40%"></div></div><div style="font-size:18px;font-weight:500;flex-shrink:0"><span class="hi">2</span>/5</div></div><div class="pr"><div class="pd">Day 7</div><div class="pb"><div class="pf" style="width:80%"></div></div><div style="font-size:18px;font-weight:500;flex-shrink:0"><span class="hi">4</span>/5</div></div></div>
+<div class="mc"><div class="mh"><div style="font-size:14px;font-weight:600">肩頸緊繃</div><div class="mbg">下降 2 分</div></div><div class="pr"><div class="pd">Day 1</div><div class="pb"><div class="pf" style="width:80%"></div></div><div style="font-size:18px;font-weight:500;flex-shrink:0"><span class="hi">4</span>/5</div></div><div class="pr"><div class="pd">Day 7</div><div class="pb"><div class="pf" style="width:40%"></div></div><div style="font-size:18px;font-weight:500;flex-shrink:0"><span class="hi">2</span>/5</div></div></div>
+<div class="mc"><div class="mh"><div style="font-size:14px;font-weight:600">放鬆感</div><div class="mbg">提升 2 分</div></div><div class="pr"><div class="pd">Day 1</div><div class="pb"><div class="pf" style="width:40%"></div></div><div style="font-size:18px;font-weight:500;flex-shrink:0"><span class="hi">2</span>/5</div></div><div class="pr"><div class="pd">Day 7</div><div class="pb"><div class="pf" style="width:80%"></div></div><div style="font-size:18px;font-weight:500;flex-shrink:0"><span class="hi">4</span>/5</div></div></div>
+<div class="sgc"><div style="font-size:16px;font-weight:600;margin-bottom:8px">這七天最明顯的訊號</div><div style="font-size:13px;line-height:1.58">當你連續使用 5 天以上時，回報中的肩頸緊繃與壓力感開始下降；這代表目前可以先維持同一個節奏，不急著更換方向。</div></div>
+<div class="rc">
+  <div class="rtg">根據你的七天數據，建議</div>
+  <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px"><div style="flex:1"><div style="font-size:21px;font-weight:600;color:#1e1e1e">線上續用型</div></div><div style="font-family:'Roboto',sans-serif;font-weight:100;font-size:64px;color:#301675;line-height:58px">A</div></div>
+  <div style="font-size:14px;color:#666;line-height:1.58;margin-bottom:8px">七天數據顯示你有穩定進步，建議先繼續使用平衡衣並自主觀察，再累積下一段睡眠變化。</div>
+  <div style="display:flex;flex-direction:column;gap:4px">
+    <div style="display:flex;align-items:center;gap:8px"><div class="rbl"><svg width="9" height="7" viewBox="0 0 9.2 6.7" fill="none"><path d="M1 3.35l2.6 2.6L8.2 1" stroke="#FCFFF7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="font-size:13px;color:#666;line-height:1.58">維持目前使用節奏，先連續觀察下一週。</div></div>
+    <div style="display:flex;align-items:center;gap:8px"><div class="rbl"><svg width="9" height="7" viewBox="0 0 9.2 6.7" fill="none"><path d="M1 3.35l2.6 2.6L8.2 1" stroke="#FCFFF7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="font-size:13px;color:#666;line-height:1.58">持續記錄睡眠品質、肩頸緊繃與放鬆感。</div></div>
+    <div style="display:flex;align-items:center;gap:8px"><div class="rbl"><svg width="9" height="7" viewBox="0 0 9.2 6.7" fill="none"><path d="M1 3.35l2.6 2.6L8.2 1" stroke="#FCFFF7" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="font-size:13px;color:#666;line-height:1.58">若後續變化停滯，再選擇體驗會或專人協助。</div></div>
+  </div>
+</div>
+<div class="oc2">
+  <div class="occ"><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:4px"><span>體驗會適合型</span><span>B</span></div><div style="font-size:11px;color:#666;line-height:1.45">想更完整看懂身體反應時，可以參加體驗會。</div></div>
+  <div class="occ"><div style="display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:4px"><span>專人協助型</span><span>C</span></div><div style="font-size:11px;color:#666;line-height:1.45">若狀況較複雜，可由專人進一步協助。</div></div>
+</div>
+<div style="height:80px"></div>
+<div class="bot" style="gap:8px">
+  <button class="bg">選擇 A 線上續用</button>
+  <button style="background:transparent;color:#74bc1f;border:1.5px solid #74bc1f;border-radius:999px;width:100%;padding:9px 13px;font-size:17px;font-family:'Noto Sans TC',sans-serif;cursor:pointer">回到首頁</button>
+</div>
+</div>
+</body>
+</html>

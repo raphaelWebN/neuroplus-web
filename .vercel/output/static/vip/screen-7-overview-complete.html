@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<title>畫面 7 — 7天總覽（全完成）</title>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&family=Roboto:wght@100;300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:rgba(31,188,179,0.1);display:flex;align-items:flex-start;justify-content:center;min-height:100vh;font-family:'Noto Sans TC',sans-serif}
+.wrap{width:375px;min-height:100vh;background:rgba(31,188,179,0.1);position:relative;padding:16px 16px 100px}
+.lt{color:#1fbcb3;font-size:13px;font-weight:600;margin-bottom:8px}
+.h1d{color:#1e1e1e;font-size:26px;font-weight:600;line-height:1.22}
+.h1dg{color:#13241f;font-size:26px;font-weight:600;line-height:1.22}
+.h2t{color:#1fbcb3;font-size:16px;font-weight:600}
+.sh{margin-bottom:16px}
+.cd{background:white;border-radius:12px;padding:24px;width:100%;margin-bottom:16px}
+.cds{background:white;border-radius:12px;padding:12px 16px;width:100%;display:flex;align-items:center;margin-bottom:8px}
+.ip{background:white;border:1px solid #ccc;border-radius:999px;height:48px;width:100%;display:flex;align-items:center;padding:0 16px;font-size:16px;color:rgba(102,102,102,.7)}
+.ips{background:white;border:1px solid #ccc;border-radius:999px;height:28px;display:inline-flex;align-items:center;padding:0 12px;font-size:14px;color:rgba(102,102,102,.7);white-space:nowrap}
+.orsep{display:flex;align-items:center;gap:12px;justify-content:center;padding:4px 0}
+.orl{background:#d9d9d9;height:1px;width:32px}
+.bg{background:#74bc1f;color:white;border:none;border-radius:999px;width:100%;padding:10px 13px;font-size:17px;font-family:'Noto Sans TC',sans-serif;cursor:pointer;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
+.bol{background:transparent;color:#74bc1f;border:1.5px solid #74bc1f;border-radius:999px;flex:1;padding:9px 13px;font-size:17px;font-family:'Noto Sans TC',sans-serif;cursor:pointer;text-align:center}
+.bol.sel{background:#74bc1f;color:white}
+.boff{background:#eee;color:#22302f;border:1.5px solid #eee;border-radius:999px;width:100%;padding:10px 13px;font-size:17px;font-family:'Noto Sans TC',sans-serif;cursor:default;text-align:center;opacity:.4}
+.br{display:flex;gap:8px;width:100%}
+.sp{padding:16px 0 17px}
+.sp+.sp{border-top:1px solid #eee}
+.dayg{font-family:'Roboto',sans-serif;font-weight:500;font-size:32px;color:#74bc1f;flex:1}
+.dayl{font-family:'Roboto',sans-serif;font-weight:300;font-size:32px;color:#74bc1f;flex:1}
+.dayx{font-family:'Roboto',sans-serif;font-weight:300;font-size:32px;color:rgba(102,102,102,.7);flex:1}
+.by{background:#74bc1f;color:white;font-size:14px;height:28px;padding:0 12px;border-radius:999px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.bn{background:white;color:rgba(102,102,102,.7);font-size:14px;height:28px;padding:0 12px;border-radius:999px;border:1px solid #ccc;display:inline-flex;align-items:center;white-space:nowrap}
+.ta{background:white;border:1px solid #d9e5df;border-radius:8px;height:72px;width:100%;padding:13px;font-size:16px;color:#b3b3b3;font-family:'Noto Sans TC',sans-serif;resize:none}
+.ta.f{color:#1e1e1e}
+.bot{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:375px;padding:0 16px 16px;padding-top:32px;background:linear-gradient(to bottom,rgba(233,248,247,0) 0%,#e9f8f7 42%);display:flex;flex-direction:column;gap:8px}
+.rg{background:linear-gradient(-62.5deg,#fff 0%,#afdcd9 96%);border:1px solid white;border-radius:8px;padding:17px;box-shadow:0 8px 14px #b1e0dd;margin-bottom:8px}
+.sts{display:flex;gap:8px;height:68px}
+.stb{flex:1;background:white;border:1px solid #d9e5df;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.mc{background:white;border:1px solid #d9e5df;border-radius:8px;padding:14px;margin-bottom:8px}
+.mh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.mbg{background:#e0f3ee;color:#064b46;font-size:12px;font-weight:600;padding:4px 8px;border-radius:999px}
+.pr{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.pd{font-size:12px;color:#667873;width:36px;flex-shrink:0}
+.pb{flex:1;height:7px;background:#eee;border-radius:999px;overflow:hidden}
+.pf{height:100%;background:#1fbcb3;border-radius:999px}
+.hi{color:#1fbcb3}
+.sgc{background:#301675;border-radius:8px;padding:13px;color:white;margin-bottom:8px}
+.rc{background:#f4fbf8;border:1px solid #301675;border-radius:8px;padding:17px;margin-bottom:8px}
+.rtg{background:#301675;color:white;font-size:12px;font-weight:600;padding:5px 9px;border-radius:999px;display:inline-block;margin-bottom:8px}
+.rbl{width:16px;height:16px;background:#301675;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.oc2{display:flex;gap:12px;margin-bottom:16px}
+.occ{flex:1;background:white;border:1px solid #ccc;border-radius:8px;padding:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="sh"><div class="lt">7 天使用任務</div><div class="h1dg">每天一點點回報，七天後看見變化。</div><div class="h2t">請連續使用和紀錄至少五天喔！</div></div>
+<div style="display:flex;flex-direction:column;gap:8px">
+  <div class="cds" style="margin-bottom:0"><div class="dayl">Day 1</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><div class="ips">2026/7/25</div><div class="by"><svg width="13" height="10" viewBox="0 0 15.33 11.17" fill="none"><path d="M1 5.58l4.17 4.17L14.33 1" stroke="#F5F7FA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>已紀錄</div></div></div>
+  <div class="cds" style="margin-bottom:0"><div class="dayl">Day 2</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><div class="ips">2026/7/26</div><div class="by"><svg width="13" height="10" viewBox="0 0 15.33 11.17" fill="none"><path d="M1 5.58l4.17 4.17L14.33 1" stroke="#F5F7FA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>已紀錄</div></div></div>
+  <div class="cds" style="margin-bottom:0"><div class="dayl">Day 3</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><div class="ips">2026/7/27</div><div class="by"><svg width="13" height="10" viewBox="0 0 15.33 11.17" fill="none"><path d="M1 5.58l4.17 4.17L14.33 1" stroke="#F5F7FA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>已紀錄</div></div></div>
+  <div class="cds" style="margin-bottom:0"><div class="dayx">Day 4</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><div class="ips">2026/7/28</div><div class="bn">未紀錄</div></div></div>
+  <div class="cds" style="margin-bottom:0"><div class="dayl">Day 5</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><div class="ips">2026/7/29</div><div class="by"><svg width="13" height="10" viewBox="0 0 15.33 11.17" fill="none"><path d="M1 5.58l4.17 4.17L14.33 1" stroke="#F5F7FA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>已紀錄</div></div></div>
+  <div class="cds" style="margin-bottom:0"><div class="dayl">Day 6</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><div class="ips">2026/7/30</div><div class="by"><svg width="13" height="10" viewBox="0 0 15.33 11.17" fill="none"><path d="M1 5.58l4.17 4.17L14.33 1" stroke="#F5F7FA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>已紀錄</div></div></div>
+  <div class="cds" style="margin-bottom:0"><div class="dayl">Day 7</div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0"><div class="ips">2026/7/31</div><div class="by"><svg width="13" height="10" viewBox="0 0 15.33 11.17" fill="none"><path d="M1 5.58l4.17 4.17L14.33 1" stroke="#F5F7FA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>已紀錄</div></div></div>
+</div>
+<div class="bot"><button class="bg">看看自己的睡眠健康報告吧！</button></div>
+</div>
+</body>
+</html>
