@@ -50,7 +50,6 @@
 		</div>
 
   <div class="phone">
-    
     <div class="success" id="successPage">
     	<div class="status">
     		<span>9:41</span>
@@ -62,24 +61,22 @@
 	    	<div class="sum">
 	    		<span>訂單編號</span><strong id="orderNo">SIM-EC-000001</strong>
 	    	</div>
-	    	<div class="sum"><span>付款方式</span><strong>信用卡</strong></div>
+	    	<div class="sum"><span>付款方式</span><strong id="tradeNoAA">信用卡</strong></div>
 	    	<div class="sum"><span>付款時間</span><strong id="paidAt">剛剛</strong></div>
-	    	<div class="sum total"><span>付款金額</span><strong>NT$3,980</strong></div>	    	
+	    	<div class="sum total"><span>付款金額</span><strong id="amountAA">NT$3,980</strong></div>	    	
 	    </div>
-	    
-	    
 	    
 	    <button class="btn primary" style="margin-top:16px" onclick="alert('正式版將進入 Day 1 睡眠紀錄頁')">開始 Day 1 睡眠紀錄</button>
 	    <button class="btn ghost" onclick="location.reload()">回到結帳頁</button>
 	</div>
-	
   </div>
   <div class="toast" id="toast">已送出</div>
   <script>
-  	alert("AAA");
+  const $ = (id)=>document.getElementById(id);
+  	//alert("AAA");
   
 	//後端 API 位址，請依實際部署環境調整
-  const BACKEND_API_BASE = "http://localhost:8081/HMA";
+  const BACKEND_API_BASE = "http://localhost:8081/CRM";
 
   // 重要：這裡刻意「不」直接信任網址列上綠界帶回來的參數（例如 RtnCode），
   // 因為那些參數是透過使用者瀏覽器轉送過來的，理論上可能被竄改。
@@ -92,9 +89,13 @@
     return params.get(name);
   }
 
-  async function loadOrderResult() {
+  async function loadOrderResult() {	  
     const tradeNo = getQueryParam("tradeNo") || getQueryParam("MerchantTradeNo");
-    alert("tradeNo:"+tradeNo);
+    //alert("tradeNo:"+tradeNo);
+    
+    $('successPage').classList.add('active');
+      document.getElementById("tradeNoAA").textContent = tradeNo;
+      document.getElementById("amountAA").textContent = "NT$ 1000";
     
     if (!tradeNo) {
     	alert("找不到訂單資訊", "網址中沒有訂單編號，請從商店重新操作。");
@@ -110,7 +111,7 @@
       }
       const order = await res.json();
       
-      alert("tradeNo:"+order.merchantTradeNo);
+      //alert("tradeNo:"+order.merchantTradeNo);
 
       document.getElementById("tradeNo").textContent = order.merchantTradeNo;
       document.getElementById("amount").textContent = "NT$ " + order.totalAmount;
@@ -123,6 +124,16 @@
       } else {
         showState("⏳", "付款處理中", "尚未收到最終付款結果，請稍後重新整理此頁面查詢。", order);
       }
+      
+      $('successPage').classList.add('active');
+      document.getElementById("tradeNoAA").textContent = order.merchantTradeNo;
+      document.getElementById("amountAA").textContent = "NT$ " + order.totalAmount;
+      
+      //const order22='SIM-EC-'+Date.now().toString().slice(-6); 
+      //localStorage.setItem('sleepPackageMockOrder', JSON.stringify({ order22, name:$('receiverName').value, mobile:$('receiverMobile').value, address:$('receiverAddress').value, amount:3980, paidAt:new Date().toISOString() }));      
+      /* setTimeout(()=>{ $('orderNo').textContent=order; $('paidAt').textContent=new Date().toLocaleString('zh-TW',{hour12:false}); 
+      $('checkoutPage').classList.add('hide');        
+      window.scrollTo(0,0); },900); */
 
     } catch (err) {
       alert("err.message:"+err.message);

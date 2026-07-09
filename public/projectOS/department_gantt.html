@@ -108,6 +108,7 @@
     .gantt-scroll {
       overflow-x: auto;
       overflow-y: visible;
+      position: relative;
     }
 
     .gantt-grid-bg {
@@ -173,6 +174,7 @@
       left: 0;
       z-index: 25;
       background: inherit;
+      box-shadow: 6px 0 12px rgba(15, 23, 42, 0.04);
     }
 
     .left-header-sticky {
@@ -180,6 +182,7 @@
       left: 0;
       z-index: 35;
       background: #ffffff;
+      box-shadow: 6px 0 12px rgba(15, 23, 42, 0.04);
     }
 
     ::-webkit-scrollbar {
@@ -418,6 +421,7 @@
     let FILTERED_PROJECTS = [];
 
     let EXPANDED_PROJECT_IDS = new Set();
+    let SHOULD_SCROLL_TO_TODAY = true;
 
     let DEPARTMENT_CODE_TO_NAME = {
       "1": "業務發展處",
@@ -484,6 +488,29 @@
       return y + "-" + m + "-" + day;
     }
 
+    function isoToUtcMs(isoDate) {
+      const iso = toIsoDate(isoDate);
+      if (!iso) return NaN;
+
+      const parts = iso.split("-").map(function (n) {
+        return Number(n);
+      });
+
+      if (parts.length !== 3 || parts.some(function (n) { return !Number.isFinite(n); })) {
+        return NaN;
+      }
+
+      return Date.UTC(parts[0], parts[1] - 1, parts[2]);
+    }
+
+    function utcMsToIso(ms) {
+      const d = new Date(ms);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(d.getUTCDate()).padStart(2, "0");
+      return y + "-" + m + "-" + day;
+    }
+
     function toIsoDate(dateStr) {
       if (!dateStr) return "";
 
@@ -513,18 +540,35 @@
     }
 
     function addDays(isoDate, days) {
-      const d = new Date(isoDate);
-      d.setDate(d.getDate() + days);
-      return toIsoDate(d.toISOString());
+      const startMs = isoToUtcMs(isoDate);
+      if (isNaN(startMs)) return "";
+      return utcMsToIso(startMs + (Number(days) || 0) * 86400000);
+    }
+
+
+    function addMonths(isoDate, months) {
+      const ms = isoToUtcMs(isoDate);
+      if (isNaN(ms)) return "";
+
+      const d = new Date(ms);
+      d.setUTCMonth(d.getUTCMonth() + (Number(months) || 0));
+
+      return utcMsToIso(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    }
+
+    function startOfMonth(isoDate) {
+      const iso = toIsoDate(isoDate);
+      if (!iso) return "";
+      return iso.slice(0, 7) + "-01";
     }
 
     function daysBetween(startIso, endIso) {
       if (!startIso || !endIso) return 0;
 
-      const s = new Date(startIso + "T00:00:00");
-      const e = new Date(endIso + "T00:00:00");
+      const s = isoToUtcMs(startIso);
+      const e = isoToUtcMs(endIso);
 
-      if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+      if (isNaN(s) || isNaN(e)) return 0;
 
       return Math.round((e - s) / 86400000);
     }
@@ -1028,6 +1072,10 @@
     }
 
     function applyGanttFilters() {
+      // 切換部門 / 狀態 / 日期範圍後，圖表日期起點可能改變。
+      // 重新置中今天，避免沿用上一個部門的 scrollLeft，造成「今天線」看起來落在錯誤日期。
+      SHOULD_SCROLL_TO_TODAY = true;
+
       const dept = document.getElementById("dept-filter").value;
       const status = document.getElementById("status-filter").value;
       const q = document.getElementById("search-filter").value.trim().toLowerCase();
@@ -1178,8 +1226,11 @@
     function getChartDateRange(projects) {
       const filterStart = document.getElementById("date-start-filter").value;
       const filterEnd = document.getElementById("date-end-filter").value;
+      const rangePreset = document.getElementById("range-filter").value;
+      const today = todayIso();
 
-      if (filterStart && filterEnd) {
+      // 使用者明確選擇「自訂」時，尊重自訂起訖日。
+      if (rangePreset === "custom" && filterStart && filterEnd) {
         return {
           start: filterStart,
           end: filterEnd
@@ -1198,28 +1249,34 @@
         });
       });
 
-      if (!dates.length) {
-        const today = todayIso();
-        return {
-          start: addDays(today, -7),
-          end: addDays(today, 30)
-        };
-      }
-
       dates.sort();
 
+      // 預設顯示範圍：從「今天所在月份往前兩個月的 1 號」開始，
+      // 結束在目前篩選後專案 / 任務實際壓到的最後日期。
+      // 若最後專案日期早於今天，仍保留今天，避免今天線消失。
+      const start = startOfMonth(addMonths(today, -2));
+      const latestProjectDate = dates.length ? dates[dates.length - 1] : today;
+      const end = latestProjectDate > today ? latestProjectDate : today;
+
       return {
-        start: addDays(dates[0], -3),
-        end: addDays(dates[dates.length - 1], 7)
+        start: start,
+        end: end < start ? start : end
       };
     }
 
-    function getBarStyle(startIso, endIso, chartStart) {
-      const s = startIso || endIso || chartStart;
-      const e = endIso || startIso || s;
+    function getBarStyle(startIso, endIso, chartStart, chartEnd) {
+      const rawStart = startIso || endIso || chartStart;
+      const rawEnd = endIso || startIso || rawStart;
 
-      const offset = Math.max(0, daysBetween(chartStart, s));
-      const duration = Math.max(1, daysBetween(s, e) + 1);
+      // 長條必須裁切在目前顯示的日期範圍內。
+      // 例如專案實際從 4/1 開始，但畫面只從「今天前兩個月」開始顯示，
+      // 左側可以貼齊畫面起點，但寬度不能把 4 月那段也算進來，
+      // 否則長條會超過專案結束日或超出甘特圖範圍。
+      const visibleStart = rawStart < chartStart ? chartStart : rawStart;
+      const visibleEnd = chartEnd && rawEnd > chartEnd ? chartEnd : rawEnd;
+
+      const offset = Math.max(0, daysBetween(chartStart, visibleStart));
+      const duration = Math.max(1, daysBetween(visibleStart, visibleEnd) + 1);
 
       return {
         left: offset * DAY_WIDTH,
@@ -1304,7 +1361,7 @@
       `);
 
       return `
-        <div class="grid border-b border-slate-200 bg-white" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;">
+        <div class="grid border-b border-slate-200 bg-white" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;width:${LEFT_COL_WIDTH + totalWidth}px;">
           <div class="left-header-sticky border-r border-slate-200 px-4 py-3 h-[60px] flex items-center">
             <div>
               <p class="text-xs font-bold text-slate-700">專案 / 任務</p>
@@ -1324,14 +1381,14 @@
       const today = todayIso();
       const offset = daysBetween(chartStart, today);
 
-      if (offset < 0 || offset > totalDays) return "";
+      if (offset < 0 || offset >= totalDays) return "";
 
       return `<div class="today-line" style="left:${offset * DAY_WIDTH}px;"></div>`;
     }
 
-    function renderProjectRow(p, chartStart, totalDays, totalWidth) {
+    function renderProjectRow(p, chartStart, chartEnd, totalDays, totalWidth) {
       const expanded = EXPANDED_PROJECT_IDS.has(p.projectAID);
-      const bar = getBarStyle(p.startDate, p.endDate, chartStart);
+      const bar = getBarStyle(p.startDate, p.endDate, chartStart, chartEnd);
       const barClass = getBarClassForProject(p);
 
       const url =
@@ -1342,7 +1399,7 @@
 
       const taskRows = expanded
         ? p.tasks.map(function (t) {
-            return renderTaskRow(p, t, chartStart, totalDays, totalWidth);
+            return renderTaskRow(p, t, chartStart, chartEnd, totalDays, totalWidth);
           }).join("")
         : "";
 
@@ -1351,7 +1408,7 @@
 
       return `
         <div class="project-group border-b border-slate-100" data-project-aid="${escapeAttr(p.projectAID)}">
-          <div class="project-row grid bg-white" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;">
+          <div class="project-row grid bg-white" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;width:${LEFT_COL_WIDTH + totalWidth}px;">
             <div class="left-sticky border-r border-slate-100 px-4 py-3 min-h-[58px]">
               <div class="flex items-start gap-2">
                 <button
@@ -1418,8 +1475,8 @@
       `;
     }
 
-    function renderTaskRow(project, task, chartStart, totalDays, totalWidth) {
-      const bar = getBarStyle(task.startDate, task.endDate, chartStart);
+    function renderTaskRow(project, task, chartStart, chartEnd, totalDays, totalWidth) {
+      const bar = getBarStyle(task.startDate, task.endDate, chartStart, chartEnd);
       const barClass = getBarClassForTask(task);
 
       const statusLabel = {
@@ -1430,7 +1487,7 @@
       }[task.state] || task.state;
 
       return `
-        <div class="task-row grid" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;">
+        <div class="task-row grid" style="grid-template-columns:${LEFT_COL_WIDTH}px ${totalWidth}px;width:${LEFT_COL_WIDTH + totalWidth}px;">
           <div class="left-sticky border-r border-slate-100 pl-12 pr-4 py-2 min-h-[40px]">
             <div class="flex items-center gap-2 min-w-0">
               <span class="w-1.5 h-1.5 rounded-full ${barClass} shrink-0"></span>
@@ -1459,6 +1516,29 @@
       `;
     }
 
+
+    function scrollGanttToToday(chartStart, totalDays) {
+      if (!SHOULD_SCROLL_TO_TODAY) return;
+
+      const scrollEl = document.querySelector("#gantt-wrapper .gantt-scroll");
+      if (!scrollEl) return;
+
+      const today = todayIso();
+      const offset = daysBetween(chartStart, today);
+
+      if (offset < 0 || offset >= totalDays) return;
+
+      requestAnimationFrame(function () {
+        const chartLeft = offset * DAY_WIDTH;
+        const visibleTimelineWidth = Math.max(0, scrollEl.clientWidth - LEFT_COL_WIDTH);
+        const target = chartLeft - Math.max(0, visibleTimelineWidth / 2);
+        const maxScrollLeft = Math.max(0, scrollEl.scrollWidth - scrollEl.clientWidth);
+
+        scrollEl.scrollLeft = clamp(target, 0, maxScrollLeft);
+        SHOULD_SCROLL_TO_TODAY = false;
+      });
+    }
+
     function renderGantt(projects) {
       const loadingState = document.getElementById("loading-state");
       const emptyState = document.getElementById("empty-state");
@@ -1484,8 +1564,10 @@
       header.innerHTML = renderGanttHeader(range.start, totalDays, totalWidth);
 
       body.innerHTML = projects.map(function (p) {
-        return renderProjectRow(p, range.start, totalDays, totalWidth);
+        return renderProjectRow(p, range.start, range.end, totalDays, totalWidth);
       }).join("");
+
+      scrollGanttToToday(range.start, totalDays);
     }
 
     // =====================================================
