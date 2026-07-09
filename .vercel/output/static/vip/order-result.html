@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>付款結果</title>
+  <style>
+    :root{
+      --bg:#f5f8f4;
+      --card:#ffffff;
+      --ink:#17302b;
+      --muted:#6c7b77;
+      --line:#d7e3dd;
+      --primary:#3a786d;
+      --primary-dark:#2f685e;
+      --green:#74bc1f;
+      --red:#d94f4f;
+      --cream:#fff9ed;
+      --soft:#eef8f1;
+      --shadow:0 8px 24px rgba(22,56,48,.08);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:#e9f0eb;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",Arial,sans-serif;color:var(--ink)}
+    .phone{width:390px;max-width:100%;min-height:100vh;margin:0 auto;background:var(--bg);box-shadow:0 20px 60px rgba(0,0,0,.14);position:relative;padding-bottom:126px}
+    .status{height:28px;padding:8px 18px 0;display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#112;line-height:1}
+    .topbar{height:48px;display:flex;align-items:center;gap:10px;padding:0 16px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+    .logo{width:26px;height:26px;border-radius:7px;background:var(--primary);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800}
+    .topbar h1{font-size:14px;margin:0;flex:1;font-weight:800}.topbar .right{font-size:12px;color:#40534f;font-weight:700}
+    .progress{height:3px;background:#d7e4de}.progress span{display:block;width:70%;height:100%;background:var(--primary)}
+    main{padding:14px 16px 20px}.eyebrow{font-size:12px;color:var(--primary);font-weight:800;margin:0 0 7px}h2{font-size:24px;line-height:1.25;margin:0 0 14px;letter-spacing:-.02em}.state{background:#eef8dc;border:1px solid #a5cf65;border-radius:9px;padding:10px 12px;font-size:12px;color:#54701e;margin-bottom:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+    .product{display:flex;align-items:center;gap:12px}.thumb{width:72px;height:72px;border-radius:12px;background:#eef4f0;display:grid;place-items:center;position:relative;overflow:hidden;flex:0 0 auto}.thumb img{width:100%;height:100%;object-fit:cover;display:none}.thumb span{font-weight:900;color:#21443d}.product h3{font-size:14px;line-height:1.25;margin:0 0 3px;font-weight:900}.price{color:var(--green);font-size:17px;font-weight:900}.qty{margin-left:auto;color:#40534f;font-weight:800}.fine{font-size:11px;line-height:1.5;color:var(--muted);margin:3px 0 0}
+    .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.head h3,.card h3{font-size:17px;margin:0;font-weight:900}.chip{font-size:11px;padding:5px 8px;border-radius:999px;background:#e4f3ee;color:#2f685e;font-weight:800}.link{font-size:12px;color:#846a2a;font-weight:800}.grid{display:grid;gap:10px}.label{display:grid;gap:5px;font-size:13px;font-weight:800;color:#283c38}.label small{font-size:11px;color:var(--muted);font-weight:600}input,textarea{width:100%;border:1px solid #cbdad4;border-radius:9px;padding:11px 12px;font-size:14px;background:#fff;color:var(--ink);outline:none;font-family:inherit}input:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(58,120,109,.12)}.row{display:grid;grid-template-columns:1fr 96px;gap:8px}.mini-btn{border:0;border-radius:9px;background:#e4f3ee;color:#2f685e;font-weight:900;font-size:12px}.mini-btn.done{background:#dcefe7}.hint{font-size:12px;color:var(--primary);margin:0}.ship{background:var(--cream);border:1px solid #ecdcae;border-radius:10px;padding:11px;margin:0 0 12px;color:#604c17;font-size:12px}.ship b{display:block;color:#1e1e1e;font-size:14px;margin-bottom:3px}.payline{font-size:14px;color:#53635f;line-height:1.55}.policy{display:grid;gap:8px;margin:0;padding:0;list-style:none}.policy li{font-size:13px;color:#52615d;line-height:1.45;display:flex;gap:8px}.tick{width:18px;height:18px;border-radius:50%;background:#dff2e7;color:#267b5c;display:inline-grid;place-items:center;flex:0 0 auto;font-size:12px;font-weight:900}.sum{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#566662;margin-bottom:10px}.sum strong{color:#33433f}.sum.total{border-top:1px solid var(--line);padding-top:10px;margin-bottom:0;color:var(--red);font-weight:900}.sum.total strong{color:var(--red);font-size:16px}.fixed{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;max-width:100%;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:10px 16px calc(12px + env(safe-area-inset-bottom));z-index:6}.fixed .total-text{text-align:right;color:var(--red);font-size:13px;font-weight:900;margin-bottom:8px}.btn{width:100%;border:0;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:900;cursor:pointer}.primary{background:var(--primary);color:white}.primary:active{background:var(--primary-dark)}.ghost{background:#fff;color:#4d5d59;border:1px solid #cbdad4;margin-top:8px}.terms{text-align:center;font-size:11px;color:#8a9693;margin-top:8px}.error{border-color:#f2b9b9!important;background:#fffafa!important}.toast{position:fixed;left:50%;bottom:108px;transform:translateX(-50%);background:#1d3b35;color:#fff;padding:10px 14px;border-radius:999px;font-size:13px;font-weight:800;box-shadow:0 12px 26px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.2s;z-index:20}.toast.show{opacity:1}.success{display:none;text-align:center;padding:48px 22px}.success.active{display:block}.success .check{width:76px;height:76px;border-radius:50%;background:#e2f4e8;color:#287657;display:grid;place-items:center;margin:0 auto 16px;font-size:40px;font-weight:900}.success h2{font-size:24px}.success p{color:var(--muted);line-height:1.6}.success .order{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:18px;text-align:left}.hide{display:none!important}@media (min-width:520px){body{padding:16px 0}.phone{border-radius:24px;overflow:hidden;min-height:860px}}
+  </style>
+</head>
+<body>
+	<div id="loading" class="loading">查詢訂單狀態中...</div>
+	    
+	    <div id="result">
+		  <div class="icon" id="icon"></div>
+		  <h1 id="title"></h1>
+		  <p class="detail" id="message"></p>
+		
+		  <div class="card">
+		    <div><span>訂單編號</span><span id="tradeNo">-</span></div>
+		    <div><span>付款金額</span><span id="amount">-</span></div>
+		    <div><span>訂單狀態</span><span id="status">-</span></div>
+		  </div>
+		</div>
+
+  <div class="phone">
+    
+    <div class="success" id="successPage">
+    	<div class="status">
+    		<span>9:41</span>
+    		<span>Wi‑Fi 100%</span>
+    	</div>
+    	<div class="check">✓</div>
+    	<h2>刷卡成功，篩檢包已啟用</h2><p>感謝您購買 7 天睡眠卡關篩檢包。收到商品後，請依包裝內 QR Code 開始 Day 1 睡眠紀錄。</p>
+    	<div class="order">
+	    	<div class="sum">
+	    		<span>訂單編號</span><strong id="orderNo">SIM-EC-000001</strong>
+	    	</div>
+	    	<div class="sum"><span>付款方式</span><strong>信用卡</strong></div>
+	    	<div class="sum"><span>付款時間</span><strong id="paidAt">剛剛</strong></div>
+	    	<div class="sum total"><span>付款金額</span><strong>NT$3,980</strong></div>	    	
+	    </div>
+	    
+	    
+	    
+	    <button class="btn primary" style="margin-top:16px" onclick="alert('正式版將進入 Day 1 睡眠紀錄頁')">開始 Day 1 睡眠紀錄</button>
+	    <button class="btn ghost" onclick="location.reload()">回到結帳頁</button>
+	</div>
+	
+  </div>
+  <div class="toast" id="toast">已送出</div>
+  <script>
+  	alert("AAA");
+  
+	//後端 API 位址，請依實際部署環境調整
+  const BACKEND_API_BASE = "http://localhost:8081/HMA";
+
+  // 重要：這裡刻意「不」直接信任網址列上綠界帶回來的參數（例如 RtnCode），
+  // 因為那些參數是透過使用者瀏覽器轉送過來的，理論上可能被竄改。
+  // 真正可信的付款結果，是後端在 /api/ecpay/notify 收到綠界「伺服器對伺服器」通知、
+  // 並驗證 CheckMacValue 成功後，寫入資料庫/記憶體的狀態。
+  // 這裡只用網址參數裡的訂單編號，去問後端「這筆訂單目前真正的狀態」。
+
+  function getQueryParam(name) {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+  }
+
+  async function loadOrderResult() {
+    const tradeNo = getQueryParam("tradeNo") || getQueryParam("MerchantTradeNo");
+    alert("tradeNo:"+tradeNo);
+    
+    if (!tradeNo) {
+    	alert("找不到訂單資訊", "網址中沒有訂單編號，請從商店重新操作。");
+      showState("❓", "找不到訂單資訊", "網址中沒有訂單編號，請從商店重新操作。", null);
+      return;
+    }
+
+    try {
+    	alert(`${BACKEND_API_BASE}/api/ecpay/order/${encodeURIComponent(tradeNo)}`);
+      const res = await fetch(`${BACKEND_API_BASE}/api/ecpay/order/${encodeURIComponent(tradeNo)}`);
+      if (!res.ok) {
+        throw new Error("查無此訂單");
+      }
+      const order = await res.json();
+      
+      alert("tradeNo:"+order.merchantTradeNo);
+
+      document.getElementById("tradeNo").textContent = order.merchantTradeNo;
+      document.getElementById("amount").textContent = "NT$ " + order.totalAmount;
+      document.getElementById("status").textContent = statusLabel(order.status);
+
+      if (order.status === "PAID") {
+        showState("✅", "付款成功", "感謝你的購買，訂單已確認付款完成。", order);
+      } else if (order.status === "FAILED") {
+        showState("❌", "付款失敗", "很抱歉，這筆交易未能完成，請重新嘗試或使用其他付款方式。", order);
+      } else {
+        showState("⏳", "付款處理中", "尚未收到最終付款結果，請稍後重新整理此頁面查詢。", order);
+      }
+
+    } catch (err) {
+      alert("err.message:"+err.message);
+      showState("⚠️", "查詢失敗", "無法取得訂單狀態：" + err.message, null);
+    }
+  }
+
+  function statusLabel(status) {
+    switch (status) {
+      case "PAID": return "已付款";
+      case "FAILED": return "付款失敗";
+      case "PENDING": return "處理中";
+      default: return status || "未知";
+    }
+  }
+
+  function showState(icon, title, message) {
+	  const loading = document.getElementById("loading");
+	  if (loading) {
+	    loading.style.display = "none";
+	  }
+    
+    document.getElementById("icon").textContent = icon;
+    document.getElementById("title").textContent = title;
+    document.getElementById("message").textContent = message;
+    document.getElementById("result").style.display = "block";
+  }
+
+  loadOrderResult();
+  
+  </script>
+</body>
+</html>

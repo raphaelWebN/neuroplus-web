@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>7 天睡眠卡關篩檢包｜結帳</title>
+  <style>
+    :root{
+      --bg:#f5f8f4;
+      --card:#ffffff;
+      --ink:#17302b;
+      --muted:#6c7b77;
+      --line:#d7e3dd;
+      --primary:#3a786d;
+      --primary-dark:#2f685e;
+      --green:#74bc1f;
+      --red:#d94f4f;
+      --cream:#fff9ed;
+      --soft:#eef8f1;
+      --shadow:0 8px 24px rgba(22,56,48,.08);
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:#e9f0eb;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",Arial,sans-serif;color:var(--ink)}
+    .phone{width:390px;max-width:100%;min-height:100vh;margin:0 auto;background:var(--bg);box-shadow:0 20px 60px rgba(0,0,0,.14);position:relative;padding-bottom:126px}
+    .status{height:28px;padding:8px 18px 0;display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:#112;line-height:1}
+    .topbar{height:48px;display:flex;align-items:center;gap:10px;padding:0 16px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+    .logo{width:26px;height:26px;border-radius:7px;background:var(--primary);display:grid;place-items:center;color:#fff;font-size:13px;font-weight:800}
+    .topbar h1{font-size:14px;margin:0;flex:1;font-weight:800}.topbar .right{font-size:12px;color:#40534f;font-weight:700}
+    .progress{height:3px;background:#d7e4de}.progress span{display:block;width:70%;height:100%;background:var(--primary)}
+    main{padding:14px 16px 20px}.eyebrow{font-size:12px;color:var(--primary);font-weight:800;margin:0 0 7px}h2{font-size:24px;line-height:1.25;margin:0 0 14px;letter-spacing:-.02em}.state{background:#eef8dc;border:1px solid #a5cf65;border-radius:9px;padding:10px 12px;font-size:12px;color:#54701e;margin-bottom:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+    .product{display:flex;align-items:center;gap:12px}.thumb{width:72px;height:72px;border-radius:12px;background:#eef4f0;display:grid;place-items:center;position:relative;overflow:hidden;flex:0 0 auto}.thumb img{width:100%;height:100%;object-fit:cover;display:none}.thumb span{font-weight:900;color:#21443d}.product h3{font-size:14px;line-height:1.25;margin:0 0 3px;font-weight:900}.price{color:var(--green);font-size:17px;font-weight:900}.qty{margin-left:auto;color:#40534f;font-weight:800}.fine{font-size:11px;line-height:1.5;color:var(--muted);margin:3px 0 0}
+    .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.head h3,.card h3{font-size:17px;margin:0;font-weight:900}.chip{font-size:11px;padding:5px 8px;border-radius:999px;background:#e4f3ee;color:#2f685e;font-weight:800}.link{font-size:12px;color:#846a2a;font-weight:800}.grid{display:grid;gap:10px}.label{display:grid;gap:5px;font-size:13px;font-weight:800;color:#283c38}.label small{font-size:11px;color:var(--muted);font-weight:600}input,textarea{width:100%;border:1px solid #cbdad4;border-radius:9px;padding:11px 12px;font-size:14px;background:#fff;color:var(--ink);outline:none;font-family:inherit}input:focus,textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(58,120,109,.12)}.row{display:grid;grid-template-columns:1fr 96px;gap:8px}.mini-btn{border:0;border-radius:9px;background:#e4f3ee;color:#2f685e;font-weight:900;font-size:12px}.mini-btn.done{background:#dcefe7}.hint{font-size:12px;color:var(--primary);margin:0}.ship{background:var(--cream);border:1px solid #ecdcae;border-radius:10px;padding:11px;margin:0 0 12px;color:#604c17;font-size:12px}.ship b{display:block;color:#1e1e1e;font-size:14px;margin-bottom:3px}.payline{font-size:14px;color:#53635f;line-height:1.55}.policy{display:grid;gap:8px;margin:0;padding:0;list-style:none}.policy li{font-size:13px;color:#52615d;line-height:1.45;display:flex;gap:8px}.tick{width:18px;height:18px;border-radius:50%;background:#dff2e7;color:#267b5c;display:inline-grid;place-items:center;flex:0 0 auto;font-size:12px;font-weight:900}.sum{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:#566662;margin-bottom:10px}.sum strong{color:#33433f}.sum.total{border-top:1px solid var(--line);padding-top:10px;margin-bottom:0;color:var(--red);font-weight:900}.sum.total strong{color:var(--red);font-size:16px}.fixed{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:390px;max-width:100%;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:10px 16px calc(12px + env(safe-area-inset-bottom));z-index:6}.fixed .total-text{text-align:right;color:var(--red);font-size:13px;font-weight:900;margin-bottom:8px}.btn{width:100%;border:0;border-radius:12px;padding:13px 14px;font-size:15px;font-weight:900;cursor:pointer}.primary{background:var(--primary);color:white}.primary:active{background:var(--primary-dark)}.ghost{background:#fff;color:#4d5d59;border:1px solid #cbdad4;margin-top:8px}.terms{text-align:center;font-size:11px;color:#8a9693;margin-top:8px}.error{border-color:#f2b9b9!important;background:#fffafa!important}.toast{position:fixed;left:50%;bottom:108px;transform:translateX(-50%);background:#1d3b35;color:#fff;padding:10px 14px;border-radius:999px;font-size:13px;font-weight:800;box-shadow:0 12px 26px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.2s;z-index:20}.toast.show{opacity:1}.success{display:none;text-align:center;padding:48px 22px}.success.active{display:block}.success .check{width:76px;height:76px;border-radius:50%;background:#e2f4e8;color:#287657;display:grid;place-items:center;margin:0 auto 16px;font-size:40px;font-weight:900}.success h2{font-size:24px}.success p{color:var(--muted);line-height:1.6}.success .order{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:18px;text-align:left}.hide{display:none!important}@media (min-width:520px){body{padding:16px 0}.phone{border-radius:24px;overflow:hidden;min-height:860px}}
+  </style>
+</head>
+<body>
+  <div class="phone">
+    <div class="checkout-page" id="checkoutPage">
+      <div class="status"><span>9:41</span><span>Wi‑Fi 100%</span></div>
+      <header class="topbar"><div class="logo">眠</div><h1>7 天睡眠卡關篩檢包</h1><div class="right">結帳</div></header>
+      <div class="progress"><span></span></div>
+      <main>
+        <p class="eyebrow">啟用篩檢包</p>
+        <h2>免會員登入，手機 OTP 驗證後結帳。</h2>
+        <div class="state" id="checkoutState">模擬綠界刷卡完成，正式環境會接綠界刷卡頁。</div>
+        <section class="card"><div class="product"><div class="thumb"><img id="productImg" alt=""><span>眠</span></div><div><h3>7 天睡眠卡關篩檢包｜護您穩1型-入睡型</h3><div class="price">NT$3,980</div><p class="fine">含 ISI 7 題問卷、7 天觀察、平衡衣體驗與 Day 7 回訪。</p></div><div class="qty">x1</div></div></section>
+        <section class="card">
+        	<div class="head"><h3>購買人資料</h3><span class="chip" id="liffStatus">LIFF 待串接</span></div>
+        	<div class="grid"><label class="label">姓名<input id="buyerName" value="陳威翰" placeholder="請輸入姓名"></label>
+	        	<label class="label">手機號碼<small>用於 OTP 簡訊驗證與出貨聯繫</small>
+	        	<div class="row"><input id="buyerMobile" value="0968324056" inputmode="tel" placeholder="09xxxxxxxx"><button class="mini-btn" id="sendOtpBtn" type="button">發送驗證碼</button></div>
+	        	</label>
+	        	<label class="label">OTP 驗證碼
+	        	<div class="row"><input id="otpCode" value="123456" inputmode="numeric" maxlength="6" placeholder="請輸入 6 位數驗證碼"><button class="mini-btn" id="verifyOtpBtn" type="button">驗證</button></div>
+	        	<p class="hint" id="otpHint">手機已完成驗證。</p>
+	        	</label>
+	        	<label class="label">Email<small>用於寄送發票與篩檢包通知</small>
+	        		<input id="buyerEmail" type="email" value="brianxxchen@gmail.com" placeholder="name@example.com">
+	        	</label>
+        	</div>
+        </section>
+        <section class="card">
+        	<div class="head"><h3>寄送方式</h3><span class="link">免運費</span></div>
+        	<div class="ship"><b>宅配</b>預計 3–5 個工作天</div>
+        	<h3 style="margin-bottom:10px">收件資訊</h3>
+        	<div class="grid">
+        		<label class="label">收件人<input id="receiverName" value="陳威翰" placeholder="預設同購買人"></label>
+        		<label class="label">收件手機<input id="receiverMobile" value="0968324056" inputmode="tel" placeholder="預設同購買人手機"></label>
+        		<label class="label">寄送地址<textarea id="receiverAddress" rows="3" placeholder="請輸入完整收件地址">台北市仁愛路4號</textarea></label>
+        	</div>
+        </section>
+        <section class="card"><h3>付款方式</h3><p class="payline">💳 線上付款；送出訂單後將轉至綠界刷卡頁面。</p></section>
+        <section class="card"><h3>發票類型</h3><p class="payline">電子發票將寄送至上方 Email。</p></section>
+        <section class="card"><h3>退換貨政策</h3><ul class="policy"><li><span class="tick">✓</span><span>本商品適用 7 天鑑賞期</span></li><li><span class="tick">✓</span><span>商品需保持全新狀態：未使用、無污損、包裝完整含所有配件</span></li></ul></section>
+        <section class="card"><h3>付款詳情</h3>
+        	<div class="sum"><span>1 個商品</span><strong>NT$3,980</strong></div>
+        	<div class="sum"><span>運費</span><strong>NT$0</strong></div>
+        	<div class="sum total"><span>訂單總金額</span><strong>NT$3,980</strong></div>
+        </section>
+      </main>
+      <div class="fixed">
+      	<div class="total-text">總付款金額&nbsp; NT$3,980</div>
+      	<button class="btn primary" id="checkoutBtn" onclick="DoCheckout();">結帳並前往綠界刷卡</button>
+      	<button class="btn ghost" onclick="history.back()">回上一頁</button>
+      	<div class="terms">結帳完成視為同意條款與規則。</div>
+      </div>
+    </div>
+    <div class="success" id="successPage"><div class="status"><span>9:41</span><span>Wi‑Fi 100%</span></div><div class="check">✓</div><h2>刷卡成功，篩檢包已啟用</h2><p>感謝您購買 7 天睡眠卡關篩檢包。收到商品後，請依包裝內 QR Code 開始 Day 1 睡眠紀錄。</p><div class="order"><div class="sum"><span>訂單編號</span><strong id="orderNo">SIM-EC-000001</strong></div><div class="sum"><span>付款方式</span><strong>信用卡</strong></div><div class="sum"><span>付款時間</span><strong id="paidAt">剛剛</strong></div><div class="sum total"><span>付款金額</span><strong>NT$3,980</strong></div></div><button class="btn primary" style="margin-top:16px" onclick="alert('正式版將進入 Day 1 睡眠紀錄頁')">開始 Day 1 睡眠紀錄</button><button class="btn ghost" onclick="location.reload()">回到結帳頁</button></div>
+  </div>
+  <div class="toast" id="toast">已送出</div>
+  
+  <!--  http://localhost:8081/HMA/000TTEindex.html
+這是綠界科技(ECPay)測試環境（payment-stage.ecpay.com.tw），官方文件有公開的測試卡號可供開發測試使用，以下提供給您參考：
+信用卡測試資料
+欄位測試值信用卡卡號 4311-9522-2222-2222
+有效期限 (MM/YY)任何未來日期，例如 12/29
+安全碼CVV 222
+持卡人姓名 陳威翰  TEST（或任意英文字母，須符合格式）
+手機號碼 0968324056  0987654321
+電子信箱  brianxxchen@gmail.com  test@ecpay.com.tw -->
+  
+  <!-- 這個隱藏表單會在取得綠界回傳的參數後，動態填入並自動送出到綠界付款頁 -->
+  <form id="ecpayForm" method="post" style="display:none;"></form>
+  
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    let otpVerified = true;
+    function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+    function validate(){
+      const ids=['buyerName','buyerMobile','otpCode','buyerEmail','receiverName','receiverMobile','receiverAddress']; let ok=true;
+      ids.forEach(id=>{ const el=$(id); el.classList.remove('error'); if(!String(el.value||'').trim()){ el.classList.add('error'); ok=false; } });
+      if(!/^09\d{8}$/.test($('buyerMobile').value.trim())){ $('buyerMobile').classList.add('error'); ok=false; }
+      if(!/^\S+@\S+\.\S+$/.test($('buyerEmail').value.trim())){ $('buyerEmail').classList.add('error'); ok=false; }
+      if(!otpVerified){ $('otpCode').classList.add('error'); ok=false; }
+      return ok;
+    }
+    $('sendOtpBtn').addEventListener('click',()=>{ otpVerified=false; $('verifyOtpBtn').textContent='驗證'; $('otpHint').textContent='驗證碼已發送。原型測試碼為 123456。'; toast('OTP 驗證碼已發送'); });
+    $('verifyOtpBtn').addEventListener('click',()=>{ if($('otpCode').value.trim()==='123456'){ otpVerified=true; $('verifyOtpBtn').textContent='已驗證'; $('verifyOtpBtn').classList.add('done'); $('otpHint').textContent='手機已完成驗證。'; toast('手機驗證成功'); } else { otpVerified=false; $('otpHint').textContent='驗證碼錯誤，請重新輸入。'; $('otpCode').classList.add('error'); }});
+    $('buyerName').addEventListener('input',()=>{ if(!$('receiverName').dataset.touched) $('receiverName').value=$('buyerName').value; });
+    $('buyerMobile').addEventListener('input',()=>{ if(!$('receiverMobile').dataset.touched) $('receiverMobile').value=$('buyerMobile').value; });
+    $('receiverName').addEventListener('input',()=> $('receiverName').dataset.touched='1');
+    $('receiverMobile').addEventListener('input',()=> $('receiverMobile').dataset.touched='1');
+    
+    /* $('checkoutBtn').addEventListener('click',()=>{
+      if(!validate()){ toast('請確認必填資料與 OTP 驗證'); return; }
+      $('checkoutBtn').disabled=true; $('checkoutBtn').textContent='正在前往綠界刷卡...';
+      const order='SIM-EC-'+Date.now().toString().slice(-6); 
+      localStorage.setItem('sleepPackageMockOrder', JSON.stringify({ order, name:$('receiverName').value, mobile:$('receiverMobile').value, address:$('receiverAddress').value, amount:3980, paidAt:new Date().toISOString() }));
+      setTimeout(()=>{ $('orderNo').textContent=order; $('paidAt').textContent=new Date().toLocaleString('zh-TW',{hour12:false}); $('checkoutPage').classList.add('hide'); $('successPage').classList.add('active'); window.scrollTo(0,0); },900);
+    }); */
+    
+	// 後端 API 位址，請依實際部署環境調整
+	const BACKEND_API_BASE = "http://localhost:8081/HMA";
+    
+    async function DoCheckout() {
+    	alert("DoCheckout");
+    	let buyerName = $('buyerName').value.trim();  // 購買人資料 姓名 
+    	let buyerMobile = $('buyerMobile').value.trim();  // 手機號碼
+    	let otpCode = $('otpCode').value.trim();  // OTP 驗證碼
+    	let buyerEmail = $('buyerEmail').value.trim();  // Email
+    	let receiverName = $('receiverName').value.trim();  // 收件資訊  收件人
+    	let receiverMobile = $('receiverMobile').value.trim();  // 收件手機
+    	let receiverAddress = $('receiverAddress').value.trim();  // 寄送地址
+    	
+    	if (buyerName == "") {
+    		alert("請填寫 購買人 姓名");
+    		return;
+    	}
+    	
+    	if (buyerMobile == "") {
+    		alert("請填寫 購買人 手機號碼");
+    		return;
+    	}
+    	
+    	if (otpCode == "") {
+    		alert("請填寫 購買人 OTP 驗證碼");
+    		return;
+    	}
+    	
+    	if (buyerEmail == "") {
+    		alert("請填寫 購買人 Email");
+    		return;
+    	}
+    	
+    	if (receiverName == "") {
+    		alert("請填寫 收件人");
+    		return;
+    	}
+    	
+    	if (receiverMobile == "") {
+    		alert("請填寫 收件手機");
+    		return;
+    	}
+    	
+    	if (receiverAddress == "") {
+    		alert("請填寫 寄送地址");
+    		return;
+    	}
+    	
+    	$('checkoutBtn').disabled=true; 
+    	$('checkoutBtn').textContent='正在前往綠界刷卡...';
+    	
+    	const payload = {
+ 		    itemName: buyerName,
+ 		    tradeDesc: "1 個商品",
+ 		    totalAmount: parseInt("3980")
+ 		};
+    	
+    	// 1. 呼叫後端 Java Web API，由後端安全地計算 CheckMacValue
+        //    （HashKey / HashIV 只存在後端，前端永遠不會看到）
+        const res = await fetch(`${BACKEND_API_BASE}/api/ecpay/create-order`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `後端回應錯誤 (HTTP ${res.status})`);
+        }
+
+        const result = await res.json();
+        // result 格式範例：
+        // {
+        //   "actionUrl": "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5",
+        //   "params": { "MerchantID": "...", "MerchantTradeNo": "...", ..., "CheckMacValue": "..." }
+        // }
+
+        // 2. 動態組出表單並自動 submit 到綠界付款頁（帶著後端算好的 CheckMacValue）
+        const ecpayForm = document.getElementById("ecpayForm");
+        ecpayForm.action = result.actionUrl;
+        ecpayForm.innerHTML = "";
+
+        Object.entries(result.params).forEach(([key, value]) => {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = key;
+          input.value = value;
+          ecpayForm.appendChild(input);
+        });
+
+        ecpayForm.submit(); // 瀏覽器頁面會導向綠界付款頁
+    	
+    	/* buyerName  購買人資料 姓名
+		buyerMobile  手機號碼
+		otpCode  OTP 驗證碼
+		buyerEmail  Email 
+		receiverName   收件資訊  收件人
+		receiverMobile  收件手機 
+		receiverAddress  寄送地址
+		訂單總金額  NT$3,980  */    	
+    }
+  </script>
+</body>
+</html>

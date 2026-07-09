@@ -543,6 +543,7 @@ export const useMemberStore = defineStore('member', () => {
       const { token, admin, sel } = auth
       if (!token || !admin || (!sel.MID && !sel.Mobile)) return
 
+      // const res = await fetch("http://localhost:8081/HMA/api/bk/OptDetailMIDList", {
       const res = await fetch("https://23700999.com:8081/HMA/api/bk/OptDetailMIDList", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -557,6 +558,7 @@ export const useMemberStore = defineStore('member', () => {
 
       const data = await res.json()
       if (data.Result === "OK") {
+
         // 根據 FAID (對應 AID) 篩選資料，並轉換事件類型
         // 當 aid 為空時，回傳全部資料；否則篩選 FAID === aid 或 FAID === "0"
         optDetailList.value = (data.OptDetailMIDList || [])
@@ -564,6 +566,8 @@ export const useMemberStore = defineStore('member', () => {
           .map((item: any, index: number) => {
             let eventDesc = "—"
             
+            console.log("OptDetailMIDList data =", item.OptDetailMIDList);
+
             if (item.Event === "A") {
               eventDesc = getAEventDesc(item.Parameter, item.Desc)
             } else if (item.Event === "B") {
@@ -601,6 +605,7 @@ export const useMemberStore = defineStore('member', () => {
               event: eventDesc,
               AID: item.AID || "",
               FAID: item.FAID || "",
+              FavoriteName: item.FavoriteName || "",
             }
           })
       } else {

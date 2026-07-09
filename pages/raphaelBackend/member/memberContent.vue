@@ -151,6 +151,7 @@
             <div class="operationTableHeaderItem">操作日期</div>
             <div class="operationTableHeaderItem">操作時間</div>
             <div class="operationTableHeaderItem">操作事件</div>
+            <div class="operationTableHeaderItem">我的最愛名稱</div>
           </div>
 
           <div class="operationTableHR" />
@@ -176,6 +177,7 @@
                 <div class="operationTableCell">{{ record.date }}</div>
                 <div class="operationTableCell">{{ record.time }}</div>
                 <div class="operationTableCell">{{ record.event }}</div>
+                <div class="operationTableCell">{{ record.FavoriteName }}</div>
               </div>
             </template>
           </div>
