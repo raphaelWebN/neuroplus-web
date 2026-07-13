@@ -61,7 +61,7 @@
 	    	<div class="sum">
 	    		<span>訂單編號</span><strong id="orderNo">SIM-EC-000001</strong>
 	    	</div>
-	    	<div class="sum"><span>付款方式</span><strong id="tradeNoAA">信用卡</strong></div>
+	    	<div class="sum"><span>付款方式</span><strong>信用卡</strong></div>
 	    	<div class="sum"><span>付款時間</span><strong id="paidAt">剛剛</strong></div>
 	    	<div class="sum total"><span>付款金額</span><strong id="amountAA">NT$3,980</strong></div>	    	
 	    </div>
@@ -94,7 +94,7 @@
     //alert("tradeNo:"+tradeNo);
     
     $('successPage').classList.add('active');
-      document.getElementById("tradeNoAA").textContent = tradeNo;
+      document.getElementById("orderNo").textContent = tradeNo;
       document.getElementById("amountAA").textContent = "NT$ 1000";
     
     if (!tradeNo) {
@@ -104,7 +104,7 @@
     }
 
     try {
-    	alert(`${BACKEND_API_BASE}/api/ecpay/order/${encodeURIComponent(tradeNo)}`);
+    	//alert(`${BACKEND_API_BASE}/api/ecpay/order/${encodeURIComponent(tradeNo)}`);
       const res = await fetch(`${BACKEND_API_BASE}/api/ecpay/order/${encodeURIComponent(tradeNo)}`);
       if (!res.ok) {
         throw new Error("查無此訂單");
@@ -126,7 +126,7 @@
       }
       
       $('successPage').classList.add('active');
-      document.getElementById("tradeNoAA").textContent = order.merchantTradeNo;
+      document.getElementById("orderNo").textContent = order.merchantTradeNo;
       document.getElementById("amountAA").textContent = "NT$ " + order.totalAmount;
       
       //const order22='SIM-EC-'+Date.now().toString().slice(-6); 

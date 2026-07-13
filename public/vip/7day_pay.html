@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>7 天睡眠卡關篩檢包｜結帳</title>
+   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     :root{
       --bg:#f5f8f4;
@@ -35,6 +36,9 @@
   </style>
 </head>
 <body>
+	<h1>LINE 使用者資訊</h1>
+  <div id="userInfo">載入中...</div>
+
   <div class="phone">
     <div class="checkout-page" id="checkoutPage">
       <div class="status"><span>9:41</span><span>Wi‑Fi 100%</span></div>
@@ -104,6 +108,41 @@
   <form id="ecpayForm" method="post" style="display:none;"></form>
   
   <script>
+	//初始化 LIFF，換成你自己的 LIFF ID
+  const LIFF_ID = "2010683390-v4kks3Jb";  //你的LIFF_ID
+
+  async function main() {
+    try {
+    	await liff.init({ liffId: LIFF_ID });
+
+        // ✅ 關鍵：先檢查是否登入，沒登入就導向登入
+        if (!liff.isLoggedIn()) {
+          liff.login(); // 會離開頁面導向 LINE 登入，登入後會帶著 code 導回本頁
+          return; // 記得 return，避免後面程式繼續執行
+        }
+
+        const decodedToken = liff.getDecodedIDToken();
+
+        if (!decodedToken) {
+          throw new Error("無法取得 ID Token，請確認 LIFF 的 Scopes 有勾選 openid");
+        }
+
+        console.log("User ID (sub):", decodedToken.sub);
+
+        document.getElementById("userInfo").innerHTML = `
+          <p><strong>User ID：</strong> ${decodedToken.sub}</p>
+          <p><strong>Name：</strong> ${decodedToken.name || "(未提供)"}</p>
+        `;      
+
+    } catch (err) {
+      console.error("LIFF 初始化失敗", err);
+      document.getElementById("userInfo").innerText = "發生錯誤：" + err.message;
+    }
+  }
+
+  main();
+  
+  
     const $ = (id)=>document.getElementById(id);
     let otpVerified = true;
     function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
@@ -134,7 +173,7 @@
 	const BACKEND_API_BASE = "http://localhost:8081/CRM";
     
     async function DoCheckout() {
-    	alert("DoCheckout");
+    	//alert("DoCheckout");
     	let buyerName = $('buyerName').value.trim();  // 購買人資料 姓名 
     	let buyerMobile = $('buyerMobile').value.trim();  // 手機號碼
     	let otpCode = $('otpCode').value.trim();  // OTP 驗證碼
@@ -182,8 +221,8 @@
     	$('checkoutBtn').textContent='正在前往綠界刷卡...';
     	
     	const payload = {
- 		    itemName: buyerName,
- 		    tradeDesc: "1 個商品",
+ 		    itemName: "1 個商品",
+ 		    tradeDesc: "訂單付款",
  		    totalAmount: parseInt("3980")
  		};
     	

@@ -102,6 +102,13 @@ export default defineNuxtConfig({
       alias: {
         '#internal': 'nuxt/dist/runtime'
       }
+    },
+    // ✅ 新增這一段，解決 ngrok host 被擋的問題
+    server: {
+      allowedHosts: [
+        '.ngrok-free.dev',   // 開頭加點代表允許所有子網域
+        '.ngrok-free.app',
+      ]
     }
   },
 });
